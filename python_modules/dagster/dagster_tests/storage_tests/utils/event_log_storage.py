@@ -15,6 +15,7 @@ from dagster import (
     AssetKey,
     AssetMaterialization,
     AssetObservation,
+    AssetRecordsFilter,
     DagsterInstance,
     EventLogRecord,
     EventRecordsFilter,
@@ -998,12 +999,7 @@ class TestEventLogStorage:
 
             assert asset_key in set(storage.all_asset_keys())
 
-            records = storage.get_event_records(
-                EventRecordsFilter(
-                    event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=asset_key,
-                )
-            )
+            records = storage.get_materialization_records(asset_key=asset_key)
             assert len(records) == 1
             record = records[0]
             assert isinstance(record, EventLogRecord)
@@ -1061,12 +1057,7 @@ class TestEventLogStorage:
                 )
 
                 assert asset_key in set(storage.all_asset_keys())
-                _records = storage.get_event_records(
-                    EventRecordsFilter(
-                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        asset_key=asset_key,
-                    )
-                )
+                _records = storage.get_materialization_records(asset_key=asset_key)
                 assert len(_logs) == 1
                 assert re.match("Could not resolve event record as EventLogEntry", _logs[0])
 
@@ -1094,12 +1085,7 @@ class TestEventLogStorage:
                     )
                 )
                 assert asset_key in set(storage.all_asset_keys())
-                _records = storage.get_event_records(
-                    EventRecordsFilter(
-                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        asset_key=asset_key,
-                    )
-                )
+                _records = storage.get_materialization_records(asset_key=asset_key)
                 assert len(_logs) == 1
                 assert re.match("Could not parse event record id", _logs[0])
 
@@ -1871,20 +1857,16 @@ class TestEventLogStorage:
                     for event in run_events:
                         storage.store_event(event)
 
-                records = storage.get_event_records(
-                    EventRecordsFilter(
-                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        asset_key=AssetKey("asset_key"),
-                    )
+                records = storage.get_materialization_records(
+                    asset_key=AssetKey("asset_key"),
                 )
                 assert len(records) == 4
 
-                records = storage.get_event_records(
-                    EventRecordsFilter(
-                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        asset_key=AssetKey("asset_key"),
+                records = storage.get_materialization_records(
+                    asset_key=AssetKey("asset_key"),
+                    asset_records_filter=AssetRecordsFilter(
                         asset_partitions=["partition_a", "partition_b"],
-                    )
+                    ),
                 )
                 assert len(records) == 3
 
@@ -1973,7 +1955,7 @@ class TestEventLogStorage:
                 for event in events_one:
                     storage.store_event(event)
 
-                cursor_run1 = storage.get_event_records(
+                cursor_run1 = storage.get__records(
                     EventRecordsFilter(event_type=DagsterEventType.ASSET_MATERIALIZATION),
                     limit=1,
                     ascending=False,
@@ -2080,8 +2062,7 @@ class TestEventLogStorage:
                 )
             )
             # get the storage id of the materialization we just stored
-            return storage.get_event_records(
-                EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION),
+            return storage.get_materialization_records(
                 limit=1,
                 ascending=False,
             )[0].storage_id
@@ -2523,12 +2504,7 @@ class TestEventLogStorage:
                     ),
                 )
             )
-            records = storage.get_event_records(
-                EventRecordsFilter(
-                    event_type=DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-                    asset_key=a,
-                )
-            )
+            records = storage.get_planned_materialization_records(asset_key=a)
             assert len(records) == 2
             assert records[0].event_log_entry.dagster_event.event_specific_data.partition == "bar"
             assert records[1].event_log_entry.dagster_event.event_specific_data.partition == "foo"
@@ -2579,12 +2555,7 @@ class TestEventLogStorage:
             for event in events_one:
                 storage.store_event(event)
 
-            records = storage.get_event_records(
-                EventRecordsFilter(
-                    event_type=DagsterEventType.ASSET_OBSERVATION,
-                    asset_key=a,
-                )
-            )
+            records = storage.get_observation_records(asset_key=a)
 
             assert len(records) == 1
 
@@ -2642,34 +2613,18 @@ class TestEventLogStorage:
             for event in events_one:
                 storage.store_event(event)
 
-            records = storage.get_event_records(
-                EventRecordsFilter(
-                    event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=a,
-                )
-            )
+            records = storage.get_materialization_records(asset_key=a)
             assert len(records) == 1
             storage_id = records[0].storage_id
 
-            records = storage.get_event_records(
-                EventRecordsFilter(
-                    event_type=DagsterEventType.ASSET_MATERIALIZATION, storage_ids=[storage_id]
-                )
+            records = storage.get_materialization_records(
+                asset_records_filter=AssetRecordsFilter(storage_ids=[storage_id])
             )
             assert len(records) == 1
             assert records[0].storage_id == storage_id
 
             # Assert that not providing storage IDs to filter on will still fetch events
-            assert (
-                len(
-                    storage.get_event_records(
-                        EventRecordsFilter(
-                            event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        )
-                    )
-                )
-                == 1
-            )
+            assert len(storage.get_materialization_records()) == 1
 
     def test_get_asset_records(self, storage, instance):
         @asset
@@ -2718,11 +2673,8 @@ class TestEventLogStorage:
                 assert asset_entry.last_run_id == result.run_id
                 assert asset_entry.asset_details is None
 
-                event_log_record = storage.get_event_records(
-                    EventRecordsFilter(
-                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                        asset_key=my_asset_key,
-                    )
+                event_log_record = storage.get_materialization_records(
+                    asset_key=my_asset_key,
                 )[0]
                 assert asset_entry.last_materialization_record == event_log_record
 
@@ -3040,9 +2992,7 @@ class TestEventLogStorage:
             for event in events:
                 storage.store_event(event)
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION)
-            )
+            materializations = storage.get_materialization_records()
             assert len(materializations) == 2
 
             asset_event_tags = storage.get_event_tags_for_asset(key)
@@ -3074,10 +3024,7 @@ class TestEventLogStorage:
             for event in events:
                 storage.store_event(event)
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION)
-            )
-
+            materializations = storage.get_materialization_records()
             assert len(materializations) == 1
             mat_record = materializations[0]
 
@@ -3139,9 +3086,7 @@ class TestEventLogStorage:
             for event in events:
                 storage.store_event(event)
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION)
-            )
+            materializations = storage.get_materialization_records()
 
             assert len(materializations) == 1
             mat_record = materializations[0]
@@ -3336,20 +3281,17 @@ class TestEventLogStorage:
             for event in events:
                 storage.store_event(event)
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION)
-            )
+            materializations = storage.get_materialization_records()
             assert len(materializations) == 4
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=key,
+            materializations = storage.get_materialization_records(
+                asset_key=key,
+                asset_records_filter=AssetRecordsFilter(
                     tags={
                         "dagster/partition/date": "2022-10-13",
                         "dagster/partition/country": "US",
                     },
-                )
+                ),
             )
             assert len(materializations) == 2
             for record in materializations:
@@ -3370,21 +3312,19 @@ class TestEventLogStorage:
                     "dagster/partition/date": "2022-10-13",
                 }
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=key,
+            materializations = storage.get_materialization_records(
+                asset_key=key,
+                asset_records_filter=AssetRecordsFilter(
                     tags={"nonexistent": "tag"},
-                )
+                ),
             )
             assert len(materializations) == 0
 
-            materializations = storage.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=key,
+            materializations = storage.get_materialization_records(
+                asset_key=key,
+                asset_records_filter=AssetRecordsFilter(
                     tags={"dagster/partition/date": "2022-10-13"},
-                )
+                ),
             )
             assert len(materializations) == 3
             for record in materializations:
@@ -3400,10 +3340,9 @@ class TestEventLogStorage:
 
     def test_event_records_filter_tags_requires_asset_key(self, storage):
         with pytest.raises(Exception, match="Asset key must be set in event records"):
-            storage.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    tags={"dagster/partition/date": "2022-10-13"},
+            storage.get_materialization_records(
+                asset_records_filter=AssetRecordsFilter(
+                    tags={"dagster/partition/date": "2022-10-13"}
                 )
             )
 

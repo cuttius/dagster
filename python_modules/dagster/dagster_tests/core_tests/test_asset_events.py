@@ -1,8 +1,6 @@
 from dagster import (
     AssetKey,
     AssetOut,
-    DagsterEventType,
-    EventRecordsFilter,
     Output,
     asset,
     job,
@@ -56,9 +54,7 @@ def test_non_assets_job_no_register_event():
 
     with instance_for_test() as instance:
         my_job.execute_in_process(instance=instance)
-        intent_to_materialize_events = instance.get_event_records(
-            EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION_PLANNED)
-        )
+        intent_to_materialize_events = instance.get_planned_materialization_records()
 
         assert intent_to_materialize_events == []
 
@@ -78,11 +74,8 @@ def test_multi_asset_asset_materialization_planned_events():
 
     with instance_for_test() as instance:
         result = assets_job.execute_in_process(instance=instance)
-        records = instance.get_event_records(
-            EventRecordsFilter(
-                DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-                AssetKey("my_asset_name"),
-            )
+        records = instance.get_planned_materialization_records(
+            AssetKey("my_asset_name"),
         )
         assert result.run_id == records[0].event_log_entry.run_id
         run_id = result.run_id
@@ -102,18 +95,8 @@ def test_asset_partition_materialization_planned_events():
 
     with instance_for_test() as instance:
         materialize_to_memory([my_asset, my_other_asset], instance=instance, partition_key="b")
-        [record] = instance.get_event_records(
-            EventRecordsFilter(
-                DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-                AssetKey("my_asset"),
-            )
-        )
+        [record] = instance.get_planned_materialization_records(AssetKey("my_asset"))
         assert record.event_log_entry.dagster_event.event_specific_data.partition == "b"
 
-        [record] = instance.get_event_records(
-            EventRecordsFilter(
-                DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-                AssetKey("my_other_asset"),
-            )
-        )
+        [record] = instance.get_planned_materialization_records(AssetKey("my_other_asset"))
         assert record.event_log_entry.dagster_event.event_specific_data.partition is None

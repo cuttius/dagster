@@ -17,9 +17,8 @@ from typing import (
 import dagster._seven as seven
 from dagster import (
     AssetKey,
-    DagsterEventType,
+    AssetRecordsFilter,
     DagsterInstance,
-    EventRecordsFilter,
     MultiPartitionKey,
     MultiPartitionsDefinition,
     _check as check,
@@ -253,10 +252,9 @@ def get_asset_materializations(
     check.opt_mapping_param(tags, "tags", key_type=str, value_type=str)
 
     instance = graphene_info.context.instance
-    event_records = instance.get_event_records(
-        EventRecordsFilter(
-            event_type=DagsterEventType.ASSET_MATERIALIZATION,
-            asset_key=asset_key,
+    event_records = instance.get_materialization_records(
+        asset_key=asset_key,
+        asset_records_filter=AssetRecordsFilter(
             asset_partitions=partitions,
             before_timestamp=before_timestamp,
             after_timestamp=after_timestamp,
@@ -280,10 +278,9 @@ def get_asset_observations(
     check.opt_float_param(before_timestamp, "before_timestamp")
     check.opt_float_param(after_timestamp, "after_timestamp")
     instance = graphene_info.context.instance
-    event_records = instance.get_event_records(
-        EventRecordsFilter(
-            event_type=DagsterEventType.ASSET_OBSERVATION,
-            asset_key=asset_key,
+    event_records = instance.get_observation_records(
+        asset_key=asset_key,
+        asset_records_filter=AssetRecordsFilter(
             asset_partitions=partitions,
             before_timestamp=before_timestamp,
             after_timestamp=after_timestamp,

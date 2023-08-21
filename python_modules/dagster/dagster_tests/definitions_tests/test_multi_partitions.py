@@ -5,11 +5,10 @@ import pytest
 from dagster import (
     AssetIn,
     AssetKey,
-    DagsterEventType,
+    AssetRecordsFilter,
     DailyPartitionsDefinition,
     DimensionPartitionMapping,
     DynamicPartitionsDefinition,
-    EventRecordsFilter,
     IdentityPartitionMapping,
     IOManager,
     MultiPartitionKey,
@@ -122,7 +121,7 @@ def test_tags_multi_dimensional_partitions():
         assert result.dagster_run.tags[get_multidimensional_partition_tag("date")] == "2021-06-01"
 
         materializations = sorted(
-            instance.get_event_records(EventRecordsFilter(DagsterEventType.ASSET_MATERIALIZATION)),
+            instance.get_materialization_records(),
             key=lambda x: x.event_log_entry.dagster_event.asset_key,
         )
         assert len(materializations) == 2
@@ -133,44 +132,40 @@ def test_tags_multi_dimensional_partitions():
             )
 
         materializations = list(
-            instance.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=AssetKey("asset1"),
+            instance.get_materialization_records(
+                asset_key=AssetKey("asset1"),
+                asset_records_filter=AssetRecordsFilter(
                     tags={get_multidimensional_partition_tag("abc"): "a"},
-                )
+                ),
             )
         )
         assert len(materializations) == 1
 
         materializations = list(
-            instance.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=AssetKey("asset1"),
+            instance.get_materialization_records(
+                asset_key=AssetKey("asset1"),
+                asset_records_filter=AssetRecordsFilter(
                     tags={get_multidimensional_partition_tag("abc"): "nonexistent"},
-                )
+                ),
             )
         )
         assert len(materializations) == 0
 
         materializations = list(
-            instance.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=AssetKey("asset1"),
+            instance.get_materialization_records(
+                asset_key=AssetKey("asset1"),
+                asset_records_filter=AssetRecordsFilter(
                     tags={get_multidimensional_partition_tag("date"): "2021-06-01"},
-                )
+                ),
             )
         )
         assert len(materializations) == 1
         materializations = list(
-            instance.get_event_records(
-                EventRecordsFilter(
-                    DagsterEventType.ASSET_MATERIALIZATION,
-                    asset_key=AssetKey("asset2"),
+            instance.get_materialization_records(
+                asset_key=AssetKey("asset2"),
+                asset_records_filter=AssetRecordsFilter(
                     tags={get_multidimensional_partition_tag("date"): "2021-06-01"},
-                )
+                ),
             )
         )
         assert len(materializations) == 1
