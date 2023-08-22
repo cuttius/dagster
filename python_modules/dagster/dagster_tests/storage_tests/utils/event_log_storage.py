@@ -1955,8 +1955,7 @@ class TestEventLogStorage:
                 for event in events_one:
                     storage.store_event(event)
 
-                cursor_run1 = storage.get__records(
-                    EventRecordsFilter(event_type=DagsterEventType.ASSET_MATERIALIZATION),
+                cursor_run1 = storage.get_materialization_records(
                     limit=1,
                     ascending=False,
                 )[0].storage_id
@@ -2504,7 +2503,7 @@ class TestEventLogStorage:
                     ),
                 )
             )
-            records = storage.get_planned_materialization_records(asset_key=a)
+            records = storage.get_planned_materialization_records(a)
             assert len(records) == 2
             assert records[0].event_log_entry.dagster_event.event_specific_data.partition == "bar"
             assert records[1].event_log_entry.dagster_event.event_specific_data.partition == "foo"

@@ -1399,7 +1399,7 @@ def test_asset_selection_reconstructable():
                 instance.get_records_for_run(
                     run.run_id,
                     of_type=DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-                )
+                ).records
             )
             assert len(materialization_planned) == 1
 
@@ -2382,7 +2382,7 @@ def test_subset_does_not_respect_context():
             for record in instance.get_records_for_run(
                 result.run_id,
                 of_type=DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-            )
+            ).records
         }
 
     # should only plan on creating keys start, c, final
@@ -2511,7 +2511,7 @@ def test_asset_group_build_subset_job(job_selection, expected_assets, use_multi,
             for record in instance.get_records_for_run(
                 result.run_id,
                 of_type=DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
-            )
+            ).records
         }
 
     expected_asset_keys = set(

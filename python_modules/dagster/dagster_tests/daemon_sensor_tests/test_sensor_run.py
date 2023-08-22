@@ -1712,7 +1712,7 @@ def test_run_request_asset_selection_sensor(executor, instance, workspace_contex
             record.event_log_entry.dagster_event.event_specific_data.asset_key
             for record in instance.get_records_for_run(
                 run.run_id, of_type=DagsterEventType.ASSET_MATERIALIZATION_PLANNED
-            )
+            ).records
         }
         assert planned_asset_keys == {AssetKey("a"), AssetKey("b")}
 
