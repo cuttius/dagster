@@ -483,7 +483,7 @@ class GrapheneAssetNode(graphene.ObjectType):
         )
         data_time_resolver = CachingDataTimeResolver(instance_queryer=instance_queryer)
         event_records = instance.get_materialization_records(
-            filters=AssetRecordsFilter(
+            AssetRecordsFilter(
                 asset_key=asset_key,
                 before_timestamp=int(timestampMillis) / 1000.0 + 1,
                 after_timestamp=int(timestampMillis) / 1000.0 - 1,

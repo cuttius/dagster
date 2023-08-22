@@ -615,7 +615,7 @@ class RunStatusSensorDefinition(SensorDefinition):
             if context.cursor is None or not RunStatusSensorCursor.is_valid(context.cursor):
                 most_recent_event_records = list(
                     context.instance.get_run_status_event_records(
-                        filters=event_type, ascending=False, limit=1
+                        event_type, ascending=False, limit=1
                     )
                 )
                 most_recent_event_id = (

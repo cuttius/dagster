@@ -416,7 +416,7 @@ def _get_updated_status_cache(
     )
     unevaluated_materialization_event_records = (
         instance.get_materialization_records(
-            filters=AssetRecordsFilter(asset_key=asset_key, after_cursor=cursor)
+            AssetRecordsFilter(asset_key=asset_key, after_cursor=cursor)
         )
         if cursor < (latest_materialization_storage_id or 0)
         else []
@@ -509,7 +509,7 @@ def _get_fresh_asset_status_cache_value(
         else None
     ):
         planned_event_records = instance.get_planned_materialization_records(
-            filters=asset_key,
+            asset_key,
             limit=1,
         )
 

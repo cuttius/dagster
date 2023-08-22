@@ -253,7 +253,7 @@ def get_asset_materializations(
 
     instance = graphene_info.context.instance
     event_records = instance.get_materialization_records(
-        filters=AssetRecordsFilter(
+        AssetRecordsFilter(
             asset_key=asset_key,
             asset_partitions=partitions,
             before_timestamp=before_timestamp,
@@ -279,7 +279,7 @@ def get_asset_observations(
     check.opt_float_param(after_timestamp, "after_timestamp")
     instance = graphene_info.context.instance
     event_records = instance.get_observation_records(
-        filters=AssetRecordsFilter(
+        AssetRecordsFilter(
             asset_key=asset_key,
             asset_partitions=partitions,
             before_timestamp=before_timestamp,
