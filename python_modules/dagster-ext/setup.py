@@ -32,11 +32,13 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_ext_tests*"]),
+    package_data={"dagster_ext": ["json_schema/*.json"]},
     extras_require={
         "test": [
             f"dagster{pin}",
             "boto3",
             "botocore",
+            "jsonschema",
             "moto[s3,server]",
         ],
     },

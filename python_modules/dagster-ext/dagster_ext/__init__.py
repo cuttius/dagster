@@ -114,6 +114,17 @@ ExtMetadataType = Literal[
 ]
 
 
+# ##### JSON SCHEMA
+
+_schema_root = os.path.join(os.path.dirname(__file__), "../json_schema")
+
+CONTEXT_JSON_SCHEMA_PATH = os.path.join(_schema_root, "context.json")
+with open(CONTEXT_JSON_SCHEMA_PATH) as f:
+    CONTEXT_JSON_SCHEMA = json.load(f)
+MESSAGE_JSON_SCHEMA_PATH = os.path.join(_schema_root, "message.json")
+with open(MESSAGE_JSON_SCHEMA_PATH) as f:
+    MESSAGE_JSON_SCHEMA = json.load(f)
+
 # ########################
 # ##### UTIL
 # ########################

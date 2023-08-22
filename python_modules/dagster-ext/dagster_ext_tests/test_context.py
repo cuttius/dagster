@@ -1,7 +1,10 @@
 from unittest.mock import MagicMock
 
+import jsonschema
 import pytest
 from dagster_ext import (
+    CONTEXT_JSON_SCHEMA,
+    MESSAGE_JSON_SCHEMA,
     DagsterExtError,
     ExtContext,
     ExtContextData,
@@ -25,9 +28,10 @@ TEST_EXT_CONTEXT_DEFAULTS = ExtContextData(
 
 
 def _make_external_execution_context(**kwargs):
-    kwargs = {**TEST_EXT_CONTEXT_DEFAULTS, **kwargs}
+    data = ExtContextData({**TEST_EXT_CONTEXT_DEFAULTS, **kwargs})
+    jsonschema.validate(data, CONTEXT_JSON_SCHEMA)
     return ExtContext(
-        data=ExtContextData(**kwargs),
+        data=data,
         message_channel=MagicMock(),
     )
 
@@ -162,3 +166,15 @@ def test_extras_context():
     assert context.get_extra("foo") == "bar"
     with pytest.raises(DagsterExtError, match="Extra `bar` is undefined"):
         context.get_extra("bar")
+
+
+def test_message_json_schema_validation():
+    notification = {"method": "foo", "params": {"bar": "baz"}}
+    jsonschema.validate(notification, MESSAGE_JSON_SCHEMA)
+
+
+def test_json_schema_rejects_invalid():
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"foo": "bar"}, CONTEXT_JSON_SCHEMA)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"foo": "bar"}, MESSAGE_JSON_SCHEMA)
