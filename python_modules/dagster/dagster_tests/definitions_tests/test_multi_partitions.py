@@ -133,8 +133,8 @@ def test_tags_multi_dimensional_partitions():
 
         materializations = list(
             instance.get_materialization_records(
-                asset_key=AssetKey("asset1"),
-                asset_records_filter=AssetRecordsFilter(
+                filters=AssetRecordsFilter(
+                    asset_key=AssetKey("asset1"),
                     tags={get_multidimensional_partition_tag("abc"): "a"},
                 ),
             )
@@ -143,8 +143,8 @@ def test_tags_multi_dimensional_partitions():
 
         materializations = list(
             instance.get_materialization_records(
-                asset_key=AssetKey("asset1"),
-                asset_records_filter=AssetRecordsFilter(
+                filters=AssetRecordsFilter(
+                    asset_key=AssetKey("asset1"),
                     tags={get_multidimensional_partition_tag("abc"): "nonexistent"},
                 ),
             )
@@ -153,8 +153,8 @@ def test_tags_multi_dimensional_partitions():
 
         materializations = list(
             instance.get_materialization_records(
-                asset_key=AssetKey("asset1"),
-                asset_records_filter=AssetRecordsFilter(
+                filters=AssetRecordsFilter(
+                    asset_key=AssetKey("asset1"),
                     tags={get_multidimensional_partition_tag("date"): "2021-06-01"},
                 ),
             )
@@ -162,8 +162,8 @@ def test_tags_multi_dimensional_partitions():
         assert len(materializations) == 1
         materializations = list(
             instance.get_materialization_records(
-                asset_key=AssetKey("asset2"),
-                asset_records_filter=AssetRecordsFilter(
+                filters=AssetRecordsFilter(
+                    asset_key=AssetKey("asset2"),
                     tags={get_multidimensional_partition_tag("date"): "2021-06-01"},
                 ),
             )

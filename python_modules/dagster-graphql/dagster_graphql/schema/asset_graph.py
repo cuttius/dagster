@@ -483,8 +483,8 @@ class GrapheneAssetNode(graphene.ObjectType):
         )
         data_time_resolver = CachingDataTimeResolver(instance_queryer=instance_queryer)
         event_records = instance.get_materialization_records(
-            asset_key=asset_key,
-            asset_records_filter=AssetRecordsFilter(
+            filters=AssetRecordsFilter(
+                asset_key=asset_key,
                 before_timestamp=int(timestampMillis) / 1000.0 + 1,
                 after_timestamp=int(timestampMillis) / 1000.0 - 1,
             ),
@@ -862,8 +862,9 @@ class GrapheneAssetNode(graphene.ObjectType):
     ) -> Optional[GrapheneRun]:
         event_records = list(
             graphene_info.context.instance.event_log_storage.get_planned_materialization_records(
-                self._external_asset_node.asset_key,
-                AssetRecordsFilter(asset_partitions=[partition]),
+                AssetRecordsFilter(
+                    asset_key=self._external_asset_node.asset_key, asset_partitions=[partition]
+                ),
                 limit=1,
             )
         )

@@ -292,7 +292,7 @@ class MultiAssetSensorEvaluationContext(SensorEvaluationContext):
             )
             if unconsumed_event_ids:
                 materialization_records = self.instance.get_materialization_records(
-                    asset_key, AssetRecordsFilter(storage_ids=unconsumed_event_ids)
+                    AssetRecordsFilter(asset_key=asset_key, storage_ids=unconsumed_event_ids)
                 )
                 self._initial_unconsumed_events_by_id.update(
                     {
@@ -430,8 +430,8 @@ class MultiAssetSensorEvaluationContext(SensorEvaluationContext):
 
         events = list(
             self.instance.get_materialization_records(
-                asset_key=asset_key,
-                asset_records_filter=AssetRecordsFilter(
+                filters=AssetRecordsFilter(
+                    asset_key=asset_key,
                     after_cursor=self._get_cursor(asset_key).latest_consumed_event_id,
                 ),
                 ascending=True,
@@ -527,8 +527,8 @@ class MultiAssetSensorEvaluationContext(SensorEvaluationContext):
                 materialization_by_partition[partition] = unconsumed_event
 
         partition_materializations = self.instance.get_materialization_records(
-            asset_key=asset_key,
-            asset_records_filter=AssetRecordsFilter(
+            filters=AssetRecordsFilter(
+                asset_key=asset_key,
                 asset_partitions=partitions_to_fetch,
                 after_cursor=self._get_cursor(asset_key).latest_consumed_event_id,
             ),
@@ -846,8 +846,8 @@ class MultiAssetSensorCursorAdvances:
             )
             unconsumed_events = list(context.get_trailing_unconsumed_events(asset_key)) + list(
                 context.instance.get_materialization_records(
-                    asset_key=asset_key,
-                    asset_records_filter=AssetRecordsFilter(
+                    filters=AssetRecordsFilter(
+                        asset_key=asset_key,
                         after_cursor=latest_consumed_event_id_at_tick_start,
                         before_cursor=greatest_consumed_event_id_in_tick,
                     ),
@@ -911,7 +911,7 @@ def get_cursor_from_latest_materializations(
 
     for asset_key in asset_keys:
         materializations = instance.get_materialization_records(
-            asset_key=asset_key,
+            filters=asset_key,
             limit=1,
         )
         if materializations:

@@ -615,7 +615,7 @@ class RunStatusSensorDefinition(SensorDefinition):
             if context.cursor is None or not RunStatusSensorCursor.is_valid(context.cursor):
                 most_recent_event_records = list(
                     context.instance.get_run_status_event_records(
-                        event_type=event_type, ascending=False, limit=1
+                        filters=event_type, ascending=False, limit=1
                     )
                 )
                 most_recent_event_id = (
@@ -640,8 +640,8 @@ class RunStatusSensorDefinition(SensorDefinition):
             #   left and backfill alerts for the qualified events (up to 5 at a time) during the downtime
             # Note: this is a cross-run query which requires extra handling in sqlite, see details in SqliteEventLogStorage.
             event_records = context.instance.get_run_status_event_records(
-                event_type,
                 RunStatusEventRecordsFilter(
+                    event_type,
                     after_cursor=RunShardedEventsCursor(
                         id=record_id,
                         run_updated_after=cast(datetime, pendulum.parse(update_timestamp)),

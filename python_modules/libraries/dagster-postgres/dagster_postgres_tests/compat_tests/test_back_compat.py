@@ -691,8 +691,8 @@ def test_add_asset_event_tags_table(hostname, conn_string):
             assert (
                 len(
                     instance.get_materialization_records(
-                        asset_key=AssetKey("a"),
-                        asset_records_filter=AssetRecordsFilter(
+                        filters=AssetRecordsFilter(
+                            asset_key=AssetKey("a"),
                             tags={"dagster/foo": "bar"},
                         ),
                     )
@@ -702,8 +702,9 @@ def test_add_asset_event_tags_table(hostname, conn_string):
             assert (
                 len(
                     instance.get_materialization_records(
-                        asset_key=AssetKey("a"),
-                        asset_records_filter=AssetRecordsFilter(tags={"dagster/foo": "baz"}),
+                        filters=AssetRecordsFilter(
+                            asset_key=AssetKey("a"), tags={"dagster/foo": "baz"}
+                        ),
                     )
                 )
                 == 0
@@ -711,8 +712,8 @@ def test_add_asset_event_tags_table(hostname, conn_string):
             assert (
                 len(
                     instance.get_materialization_records(
-                        asset_key=AssetKey("a"),
-                        asset_records_filter=AssetRecordsFilter(
+                        filters=AssetRecordsFilter(
+                            asset_key=AssetKey("a"),
                             tags={"dagster/foo": "bar", "other": "otherr"},
                         ),
                     )
@@ -724,8 +725,8 @@ def test_add_asset_event_tags_table(hostname, conn_string):
                 DagsterInvalidInvocationError, match="Cannot filter events on tags with a limit"
             ):
                 instance.get_materialization_records(
-                    asset_key=AssetKey("a"),
-                    asset_records_filter=AssetRecordsFilter(
+                    filters=AssetRecordsFilter(
+                        asset_key=AssetKey("a"),
                         tags={"dagster/foo": "bar", "other": "otherr"},
                     ),
                     limit=5,

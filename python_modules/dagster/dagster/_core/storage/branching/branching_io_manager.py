@@ -19,8 +19,8 @@ def latest_materialization_log_entry(
 ) -> Optional[EventLogEntry]:
     event_records = [
         *instance.get_materialization_records(
-            asset_key=asset_key,
-            asset_records_filter=AssetRecordsFilter(
+            filters=AssetRecordsFilter(
+                asset_key=asset_key,
                 asset_partitions=[partition_key] if partition_key else None,
             ),
             limit=1,

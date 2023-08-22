@@ -109,8 +109,7 @@ class AssetSensorDefinition(SensorDefinition):
                         after_cursor = None
 
                 materialization_records = context.instance.get_materialization_records(
-                    self._asset_key,
-                    AssetRecordsFilter(after_cursor=after_cursor),
+                    AssetRecordsFilter(asset_key=self._asset_key, after_cursor=after_cursor),
                     limit=1,
                 )
 

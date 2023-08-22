@@ -933,8 +933,8 @@ def get_asset_backfill_iteration_materialized_partitions(
     recently_materialized_asset_partitions = AssetGraphSubset(asset_graph)
     for asset_key in asset_backfill_data.target_subset.asset_keys:
         records = instance_queryer.instance.get_materialization_records(
-            asset_key=asset_key,
-            asset_records_filter=AssetRecordsFilter(
+            filters=AssetRecordsFilter(
+                asset_key=asset_key,
                 after_cursor=asset_backfill_data.latest_storage_id,
             ),
         )

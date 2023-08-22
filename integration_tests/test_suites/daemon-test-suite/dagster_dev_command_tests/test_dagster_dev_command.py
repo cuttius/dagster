@@ -125,7 +125,7 @@ def test_dagster_dev_command_no_dagster_home():
                                 len(instance.get_runs()) > 0
                                 and len(
                                     instance.get_run_status_event_records(
-                                        event_type=DagsterEventType.PIPELINE_ENQUEUED
+                                        filters=DagsterEventType.PIPELINE_ENQUEUED
                                     )
                                 )
                                 > 0

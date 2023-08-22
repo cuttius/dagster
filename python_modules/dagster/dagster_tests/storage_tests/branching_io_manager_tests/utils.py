@@ -64,7 +64,7 @@ class DefinitionsRunner:
     ) -> List[EventLogRecord]:
         return [
             *self.instance.get_materialization_records(
-                asset_key=AssetKey.from_coercible(asset_key),
+                filters=AssetKey.from_coercible(asset_key),
             )
         ]
 
