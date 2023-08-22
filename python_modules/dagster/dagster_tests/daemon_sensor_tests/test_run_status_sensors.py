@@ -634,7 +634,7 @@ def test_run_failure_sensor_empty_run_records(
                 runs = instance.get_runs()
                 assert len(runs) == 0
                 failure_events = instance.get_run_status_event_records(
-                    filters=DagsterEventType.PIPELINE_FAILURE
+                    DagsterEventType.PIPELINE_FAILURE
                 )
                 assert len(failure_events) == 1
                 freeze_datetime = freeze_datetime.add(seconds=60)

@@ -288,9 +288,7 @@ def test_add_asset_event_tags_table(backcompat_conn_string):
             assert (
                 len(
                     instance.get_materialization_records(
-                        filters=AssetRecordsFilter(
-                            asset_key=AssetKey("a"), tags={"dagster/foo": "bar"}
-                        ),
+                        AssetRecordsFilter(asset_key=AssetKey("a"), tags={"dagster/foo": "bar"}),
                     )
                 )
                 == 1
@@ -302,7 +300,7 @@ def test_add_asset_event_tags_table(backcompat_conn_string):
                 assert (
                     len(
                         instance.get_materialization_records(
-                            filters=AssetRecordsFilter(
+                            AssetRecordsFilter(
                                 asset_key=AssetKey("a"), tags={"dagster/foo": "bar"}
                             ),
                         )

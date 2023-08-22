@@ -286,7 +286,7 @@ def test_multi_run_concurrency(instance, workspace, two_tier_job_def):
     assert run_two.status == DagsterRunStatus.SUCCESS
 
     records = instance.get_materialization_records(
-        filters=AssetKey(["foo_slot"]),
+        AssetKey(["foo_slot"]),
         ascending=True,
     )
     max_active = 0

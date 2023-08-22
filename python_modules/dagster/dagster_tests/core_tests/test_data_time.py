@@ -198,7 +198,7 @@ def _get_record(instance):
     assert result.success
     return list(
         instance.get_materialization_records(
-            filters=AssetKey("unpartitioned_asset"),
+            AssetKey("unpartitioned_asset"),
             ascending=False,
             limit=1,
         )

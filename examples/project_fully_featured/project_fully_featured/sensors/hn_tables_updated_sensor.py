@@ -21,14 +21,14 @@ def make_hn_tables_updated_sensor(job) -> SensorDefinition:
         stories_cursor = cursor_dict.get("stories")
 
         comments_event_records = context.instance.get_materialization_records(
-            filters=AssetRecordsFilter(
+            AssetRecordsFilter(
                 asset_key=AssetKey(["snowflake", "core", "comments"]),
                 after_cursor=comments_cursor,
             ),
             limit=1,
         )
         stories_event_records = context.instance.get_materialization_records(
-            filters=AssetRecordsFilter(
+            AssetRecordsFilter(
                 asset_key=AssetKey(["snowflake", "core", "stories"]),
                 after_cursor=stories_cursor,
             ),
