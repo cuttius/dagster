@@ -514,8 +514,7 @@ class EventLogStorage(ABC, MayHaveInstanceWeakref[T_DagsterInstance]):
     @abstractmethod
     def get_materialization_records(
         self,
-        asset_key: Optional[AssetKey] = None,
-        asset_records_filter: Optional[AssetRecordsFilter] = None,
+        filters: Optional[Union[AssetKey, AssetRecordsFilter]] = None,
         limit: Optional[int] = None,
         ascending: bool = False,
     ) -> Sequence[EventLogRecord]:
@@ -524,8 +523,7 @@ class EventLogStorage(ABC, MayHaveInstanceWeakref[T_DagsterInstance]):
     @abstractmethod
     def get_observation_records(
         self,
-        asset_key: Optional[AssetKey] = None,
-        asset_records_filter: Optional[AssetRecordsFilter] = None,
+        filters: Optional[Union[AssetKey, AssetRecordsFilter]] = None,
         limit: Optional[int] = None,
         ascending: bool = False,
     ) -> Sequence[EventLogRecord]:
@@ -534,8 +532,7 @@ class EventLogStorage(ABC, MayHaveInstanceWeakref[T_DagsterInstance]):
     @abstractmethod
     def get_planned_materialization_records(
         self,
-        asset_key: Optional[AssetKey] = None,
-        asset_records_filter: Optional[AssetRecordsFilter] = None,
+        filters: Optional[Union[AssetKey, AssetRecordsFilter]] = None,
         limit: Optional[int] = None,
         ascending: bool = False,
     ) -> Sequence[EventLogRecord]:
@@ -544,8 +541,7 @@ class EventLogStorage(ABC, MayHaveInstanceWeakref[T_DagsterInstance]):
     @abstractmethod
     def get_run_status_event_records(
         self,
-        event_type: DagsterEventType,
-        filters: Optional[RunStatusEventRecordsFilter],
+        filters: Union[DagsterEventType, RunStatusEventRecordsFilter],
         limit: Optional[int] = None,
         ascending: bool = False,
     ) -> Sequence[EventLogRecord]:
