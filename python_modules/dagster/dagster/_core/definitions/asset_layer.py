@@ -687,6 +687,13 @@ class AssetLayer(NamedTuple):
     ) -> Optional[AssetOutputInfo]:
         return self.asset_info_by_node_output_handle.get(NodeOutputHandle(node_handle, output_name))
 
+    def asset_key_for_output(self, node_handle: NodeHandle, output_name: str) -> Optional[AssetKey]:
+        asset_info = self.asset_info_for_output(node_handle, output_name)
+        if asset_info:
+            return asset_info.key
+        else:
+            return None
+
     def asset_check_handle_for_output(
         self, node_handle: NodeHandle, output_name: str
     ) -> Optional[AssetCheckHandle]:

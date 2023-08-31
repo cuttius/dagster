@@ -705,10 +705,12 @@ def _store_output(
     manager_materializations = []
     manager_metadata: Dict[str, MetadataValue] = {}
 
-    # don't store asset check outputs
-    if step_context.step.step_output_named(
-        step_output_handle.output_name
-    ).properties.asset_check_handle:
+    # don't store asset check outputs or asset observation outputs
+    step_output = step_context.step.step_output_named(step_output_handle.output_name)
+    asset_key = step_output.properties.asset_key
+    if step_output.properties.asset_check_handle or (
+        step_context.output_observes_source_asset(step_output_handle.output_name)
+    ):
 
         def _no_op() -> Iterator[DagsterEvent]:
             yield from ()
