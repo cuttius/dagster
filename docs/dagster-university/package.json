@@ -3,15 +3,22 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "md-transform": "ts-node -O '{\"module\": \"commonjs\"}' scripts/md-transform.ts"
   },
   "dependencies": {
-    "@markdoc/markdoc": "latest",
-    "@markdoc/next.js": "latest",
+    "@mapbox/rehype-prism": "^0.5.0",
+    "fast-glob": "^3.2.5",
     "next": "latest",
     "prismjs": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "remark": "^13.0.0",
+    "remark-extract-frontmatter": "^3.1.0",
+    "remark-frontmatter": "^3.0.0",
+    "to-vfile": "^6.1.0",
+    "ts-node": "^9.1.1",
+    "yaml": "^2.2.2"
   },
   "devDependencies": {
     "@types/node": "latest",
