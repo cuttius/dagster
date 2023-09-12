@@ -849,9 +849,12 @@ class SeparatedResourceParams(NamedTuple):
     non_resources: Dict[str, Any]
 
 
-def _is_annotated_as_resource_type(annotation: Type) -> bool:
+def _is_annotated_as_resource_type(annotation: Type, metadata: List[str]) -> bool:
     """Determines if a field in a structured config class is annotated as a resource type or not."""
     from .inheritance_utils import safe_is_subclass
+
+    if metadata and metadata[0] == "resource_dependency":
+        return True
 
     is_annotated_as_resource_dependency = get_origin(annotation) == ResourceDependency or getattr(
         annotation, "__metadata__", None
@@ -867,16 +870,18 @@ def separate_resource_params(cls: Type[BaseModel], data: Dict[str, Any]) -> Sepa
     are marked as resources (ie, using ResourceDependency) from those which are not.
     """
     keys_by_alias = {field.alias: field for field in cls.__fields__.values()}
-    data_with_annotation: List[Tuple[str, Any, Type]] = [
+    data_with_annotation: List[Tuple[str, Any, Type, List[str]]] = [
         # No longer exists in Pydantic 2.x, will need to be updated when we upgrade
-        (k, v, keys_by_alias[k].outer_type_)
+        (k, v, keys_by_alias[k].outer_type_, [])
         for k, v in data.items()
         if k in keys_by_alias
     ]
     out = SeparatedResourceParams(
-        resources={k: v for k, v, t in data_with_annotation if _is_annotated_as_resource_type(t)},
+        resources={
+            k: v for k, v, t, m in data_with_annotation if _is_annotated_as_resource_type(t, m)
+        },
         non_resources={
-            k: v for k, v, t in data_with_annotation if not _is_annotated_as_resource_type(t)
+            k: v for k, v, t, m in data_with_annotation if not _is_annotated_as_resource_type(t, m)
         },
     )
     return out
