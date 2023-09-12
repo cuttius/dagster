@@ -70,6 +70,7 @@ from .conversion_utils import (
     TResValue,
     _curry_config_schema,
 )
+from .pydantic_compat_layer import model_fields
 from .typing_utils import BaseResourceMeta, LateBoundTypesForResourceTypeChecking
 
 Self = TypeVar("Self", bound="ConfigurableResourceFactory")
@@ -869,10 +870,12 @@ def separate_resource_params(cls: Type[BaseModel], data: Dict[str, Any]) -> Sepa
     """Separates out the key/value inputs of fields in a structured config Resource class which
     are marked as resources (ie, using ResourceDependency) from those which are not.
     """
-    keys_by_alias = {field.alias: field for field in cls.__fields__.values()}
+    keys_by_alias = {
+        field.alias if field.alias else key: field for key, field in model_fields(cls).items()
+    }
     data_with_annotation: List[Tuple[str, Any, Type, List[str]]] = [
         # No longer exists in Pydantic 2.x, will need to be updated when we upgrade
-        (k, v, keys_by_alias[k].outer_type_, [])
+        (k, v, keys_by_alias[k].annotation, keys_by_alias[k].metadata)
         for k, v in data.items()
         if k in keys_by_alias
     ]
