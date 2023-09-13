@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Union,
     cast,
 )
 
@@ -22,6 +23,7 @@ from dagster._core.definitions.data_version import (
     DataVersion,
     extract_data_provenance_from_entry,
 )
+from dagster._core.definitions.decorators.op_decorator import DecoratedOpFunction
 from dagster._core.definitions.dependency import Node, NodeHandle
 from dagster._core.definitions.events import (
     AssetKey,
@@ -37,6 +39,7 @@ from dagster._core.definitions.partition_key_range import PartitionKeyRange
 from dagster._core.definitions.step_launcher import StepLauncher
 from dagster._core.definitions.time_window_partitions import TimeWindow
 from dagster._core.errors import (
+    DagsterInvalidDefinitionError,
     DagsterInvalidPropertyError,
     DagsterInvariantViolationError,
 )
@@ -1696,3 +1699,51 @@ class AssetExecutionContext(OpExecutionContext):
     @deprecated(**_get_deprecation_kwargs("log_event"))
     def log_event(self, event: UserEvent) -> None:
         return self._op_execution_context.log_event(event)
+
+def build_execution_context(
+    step_context: StepExecutionContext,
+) -> Union[OpExecutionContext, AssetExecutionContext]:
+    """Get the correct context based on the type of step (op or asset) and the user provided context
+    type annotation. Follows these rules.
+
+    step type     annotation                result
+    asset         AssetExecutionContext     AssetExecutionContext
+    asset         OpExecutionContext        AssetExecutionContext - with deprecation warning
+    asset         None                      AssetExecutionContext
+    op            AssetExecutionContext     Error
+    op            OpExecutionContext        OpExecutionContext
+    op            None                      OpExecutionContext
+
+    """
+    is_sda_step = step_context.is_sda_step
+    is_asset_context = False
+    is_op_context = False
+
+    compute_fn = step_context.op_def._compute_fn  # noqa: SLF001
+    if isinstance(compute_fn, DecoratedOpFunction) and compute_fn.has_context_arg():
+        context_param = compute_fn.get_context_arg()
+        is_asset_context = context_param.annotation is AssetExecutionContext
+        is_op_context = context_param.annotation is OpExecutionContext
+
+    if is_asset_context and not is_sda_step:
+        raise DagsterInvalidDefinitionError(
+            "When executed in jobs, the op context should be annotated with OpExecutionContext, not"
+            " AssetExecutionContext."
+        )
+
+    if is_op_context and is_sda_step:
+        deprecation_warning(
+            "Contexts with type annotation OpExecutionContext for @assets, @multi_assets,"
+            " @graph_asset, and @graph_multi_asset.",
+            "1.7.0",
+            additional_warn_text="Please annotate the context with AssetExecutionContext",
+            stacklevel=1,
+        )
+
+    op_context = OpExecutionContext(step_context)
+
+    # TODO - determine special casing for graph backed assets
+
+    if is_sda_step:
+        return AssetExecutionContext(op_context)
+    return op_context

@@ -284,6 +284,13 @@ class DecoratedOpFunction(NamedTuple):
     def has_context_arg(self) -> bool:
         return is_context_provided(get_function_params(self.decorated_fn))
 
+    def get_context_arg(self) -> Parameter:
+        for param in get_function_params(self.decorated_fn):
+            if param.name == "context":
+                return param
+
+        check.failed("Requested context arg on function that does not have one")
+
     @lru_cache(maxsize=1)
     def _get_function_params(self) -> Sequence[Parameter]:
         return get_function_params(self.decorated_fn)
