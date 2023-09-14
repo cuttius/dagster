@@ -1,4 +1,5 @@
 from abc import ABC, ABCMeta, abstractmethod
+from inspect import _empty as EmptyAnnotation
 from typing import (
     AbstractSet,
     Any,
@@ -1708,42 +1709,37 @@ def build_execution_context(
 
     step type     annotation                result
     asset         AssetExecutionContext     AssetExecutionContext
-    asset         OpExecutionContext        AssetExecutionContext - with deprecation warning
+    asset         OpExecutionContext        OpExecutionContext
     asset         None                      AssetExecutionContext
-    op            AssetExecutionContext     Error
+    op            AssetExecutionContext     AssetExecutionContext
     op            OpExecutionContext        OpExecutionContext
     op            None                      OpExecutionContext
 
     """
     is_sda_step = step_context.is_sda_step
-    is_asset_context = False
-    is_op_context = False
-
+    context_annotation = EmptyAnnotation
     compute_fn = step_context.op_def._compute_fn  # noqa: SLF001
-    if isinstance(compute_fn, DecoratedOpFunction) and compute_fn.has_context_arg():
+    compute_fn = (
+        compute_fn
+        if isinstance(compute_fn, DecoratedOpFunction)
+        else DecoratedOpFunction(compute_fn)
+    )
+    if compute_fn.has_context_arg():
         context_param = compute_fn.get_context_arg()
-        is_asset_context = context_param.annotation is AssetExecutionContext
-        is_op_context = context_param.annotation is OpExecutionContext
-
-    if is_asset_context and not is_sda_step:
-        raise DagsterInvalidDefinitionError(
-            "When executed in jobs, the op context should be annotated with OpExecutionContext, not"
-            " AssetExecutionContext."
-        )
-
-    if is_op_context and is_sda_step:
-        deprecation_warning(
-            "Contexts with type annotation OpExecutionContext for @assets, @multi_assets,"
-            " @graph_asset, and @graph_multi_asset.",
-            "1.7.0",
-            additional_warn_text="Please annotate the context with AssetExecutionContext",
-            stacklevel=1,
-        )
+        context_annotation = context_param.annotation
 
     op_context = OpExecutionContext(step_context)
 
-    # TODO - determine special casing for graph backed assets
-
-    if is_sda_step:
+    if context_annotation is EmptyAnnotation:
+        # if no type hint has been given, default to AssetExecutionContext for sda steps and
+        # OpExecutionContext for non sda steps
+        return AssetExecutionContext(op_context) if is_sda_step else op_context
+    if context_annotation is AssetExecutionContext:
         return AssetExecutionContext(op_context)
-    return op_context
+    if context_annotation is OpExecutionContext:
+        return op_context
+
+    raise DagsterInvalidDefinitionError(
+        f"Cannot annotate `context` parameter with type {context_annotation}. `context` must be"
+        " annotated with AssetExecutionContext, OpExecutionContext, or left blank."
+    )
