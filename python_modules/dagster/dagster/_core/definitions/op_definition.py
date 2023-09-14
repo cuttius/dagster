@@ -516,12 +516,16 @@ def _validate_context_type_hint(fn):
     from inspect import _empty as EmptyAnnotation
 
     from dagster._core.decorator_utils import get_function_params, is_context_provided
-    from dagster._core.execution.context.compute import OpExecutionContext
+    from dagster._core.execution.context.compute import AssetExecutionContext, OpExecutionContext
 
     params = get_function_params(fn)
     if is_context_provided(params):
-        if not isinstance(params[0], (OpExecutionContext, EmptyAnnotation)):
+        if (
+            params[0].annotation is not AssetExecutionContext
+            and params[0].annotation is not OpExecutionContext
+            and params[0].annotation is not EmptyAnnotation
+        ):
             raise DagsterInvalidDefinitionError(
                 f"Cannot annotate `context` parameter with type {params[0].annotation}. `context`"
-                " must be annotated with OpExecutionContext or left blank."
+                " must be annotated with AssetExecutionContext, OpExecutionContext, or left blank."
             )

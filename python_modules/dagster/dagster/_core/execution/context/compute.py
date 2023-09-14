@@ -1716,6 +1716,7 @@ def build_execution_context(
 
     """
     is_sda_step = step_context.is_sda_step
+    is_op_in_graph_asset = step_context.is_graph_asset_op
     context_annotation = EmptyAnnotation
     compute_fn = step_context.op_def._compute_fn  # noqa: SLF001
     compute_fn = (
@@ -1730,9 +1731,13 @@ def build_execution_context(
     op_context = OpExecutionContext(step_context)
 
     if context_annotation is EmptyAnnotation:
-        # if no type hint has been given, default to AssetExecutionContext for sda steps and
-        # OpExecutionContext for non sda steps
-        return AssetExecutionContext(op_context) if is_sda_step else op_context
+        # if no type hint has been given, default to:
+        # * AssetExecutionContext for sda steps, not in graph-backed assets
+        # * OpExecutionContext for non sda steps
+        # * OpExecutionContext for ops in graph-backed assets
+        if is_op_in_graph_asset or not is_sda_step:
+            return op_context
+        return AssetExecutionContext(op_context)
     if context_annotation is AssetExecutionContext:
         return AssetExecutionContext(op_context)
     return op_context

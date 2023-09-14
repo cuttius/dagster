@@ -121,9 +121,7 @@ def test_context_provided_to_graph_asset():
     def no_annotation_op(context):
         assert isinstance(context, OpExecutionContext)
         # AssetExecutionContext is an instance of OpExecutionContext, so add this additional check
-        assert not isinstance(
-            context, AssetExecutionContext
-        )  # fails, context is an AssetExecutionContext in current impl
+        assert not isinstance(context, AssetExecutionContext)
 
     @graph_asset
     def no_annotation_asset():
@@ -159,9 +157,7 @@ def test_context_provided_to_graph_multi_asset():
     def no_annotation_op(context):
         assert isinstance(context, OpExecutionContext)
         # AssetExecutionContext is an instance of OpExecutionContext, so add this additional check
-        assert not isinstance(
-            context, AssetExecutionContext
-        )  # fails, context is an AssetExecutionContext in current impl
+        assert not isinstance(context, AssetExecutionContext)
 
     @graph_multi_asset(
         outs={"out1": AssetOut(dagster_type=None), "out2": AssetOut(dagster_type=None)}
@@ -238,7 +234,7 @@ def test_context_provided_to_plain_python():
 def test_error_on_invalid_context_annotation():
     with pytest.raises(
         DagsterInvalidDefinitionError,
-        match="must be annotated with OpExecutionContext or left blank",
+        match="must be annotated with AssetExecutionContext, OpExecutionContext, or left blank",
     ):
 
         @op
