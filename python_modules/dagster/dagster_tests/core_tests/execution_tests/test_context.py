@@ -236,16 +236,20 @@ def test_context_provided_to_plain_python():
 
 
 def test_error_on_invalid_context_annotation():
-    @op
-    def the_op(context: int):
-        pass
+    with pytest.raises(
+        DagsterInvalidDefinitionError,
+        match="must be annotated with OpExecutionContext or left blank",
+    ):
 
-    @job
-    def the_job():
-        the_op()
+        @op
+        def the_op(context: int):
+            pass
 
     with pytest.raises(
         DagsterInvalidDefinitionError,
         match="must be annotated with AssetExecutionContext, OpExecutionContext, or left blank",
     ):
-        assert the_job.execute_in_process()
+
+        @asset
+        def the_asset(context: int):
+            pass

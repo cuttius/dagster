@@ -40,7 +40,6 @@ from dagster._core.definitions.partition_key_range import PartitionKeyRange
 from dagster._core.definitions.step_launcher import StepLauncher
 from dagster._core.definitions.time_window_partitions import TimeWindow
 from dagster._core.errors import (
-    DagsterInvalidDefinitionError,
     DagsterInvalidPropertyError,
     DagsterInvariantViolationError,
 )
@@ -1736,10 +1735,4 @@ def build_execution_context(
         return AssetExecutionContext(op_context) if is_sda_step else op_context
     if context_annotation is AssetExecutionContext:
         return AssetExecutionContext(op_context)
-    if context_annotation is OpExecutionContext:
-        return op_context
-
-    raise DagsterInvalidDefinitionError(
-        f"Cannot annotate `context` parameter with type {context_annotation}. `context` must be"
-        " annotated with AssetExecutionContext, OpExecutionContext, or left blank."
-    )
+    return op_context

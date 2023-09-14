@@ -21,8 +21,12 @@ import dagster._check as check
 from dagster._annotations import deprecated_param, experimental_param
 from dagster._builtins import Nothing
 from dagster._config import UserConfigSchema
+<<<<<<< HEAD
 from dagster._core.decorator_utils import get_function_params, get_valid_name_permutations
 from dagster._core.definitions.asset_dep import AssetDep, CoercibleToAssetDep
+=======
+from dagster._core.decorator_utils import get_function_params
+>>>>>>> eed11d9bde (error on bad type annotation at def time)
 from dagster._core.definitions.auto_materialize_policy import AutoMaterializePolicy
 from dagster._core.definitions.config import ConfigMapping
 from dagster._core.definitions.freshness_policy import FreshnessPolicy
@@ -326,6 +330,7 @@ class _Asset:
         from dagster._core.execution.build_resources import wrap_resources_for_execution
 
         validate_resource_annotated_function(fn)
+        _validate_context_type_hint(fn)
         asset_name = self.name or fn.__name__
 
         asset_ins = build_asset_ins(fn, self.ins or {}, {dep.asset_key for dep in self.deps})
@@ -832,11 +837,10 @@ def multi_asset(
 
 
 def get_function_params_without_context_or_config_or_resources(fn: Callable) -> List[Parameter]:
+    from dagster._core.decorator_utils import is_context_provided
+
     params = get_function_params(fn)
-    is_context_provided = len(params) > 0 and params[0].name in get_valid_name_permutations(
-        "context"
-    )
-    input_params = params[1:] if is_context_provided else params
+    input_params = params[1:] if is_context_provided(params) else params
 
     resource_arg_names = {arg.name for arg in get_resource_args(fn)}
 
@@ -1311,3 +1315,18 @@ def _get_partition_mappings_from_deps(
             )
 
     return partition_mappings
+
+
+def _validate_context_type_hint(fn):
+    from inspect import _empty as EmptyAnnotation
+
+    from dagster._core.decorator_utils import get_function_params, is_context_provided
+    from dagster._core.execution.context.compute import AssetExecutionContext, OpExecutionContext
+
+    params = get_function_params(fn)
+    if is_context_provided(params):
+        if not isinstance(params[0], (AssetExecutionContext, OpExecutionContext, EmptyAnnotation)):
+            raise DagsterInvalidDefinitionError(
+                f"Cannot annotate `context` parameter with type {params[0].annotation}. `context`"
+                " must be annotated with AssetExecutionContext, OpExecutionContext, or left blank."
+            )
