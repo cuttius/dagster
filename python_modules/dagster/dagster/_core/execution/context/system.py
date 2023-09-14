@@ -865,7 +865,7 @@ class StepExecutionContext(PlanExecutionContext, IStepContext):
         return op_config.config if op_config else None
 
     @property
-    def is_graph_asset_op(self) -> bool:
+    def is_op_in_graph(self) -> bool:
         return self.step.node_handle.parent is not None
 
     @property

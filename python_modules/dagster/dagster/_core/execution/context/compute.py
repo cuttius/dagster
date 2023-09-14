@@ -1716,7 +1716,7 @@ def build_execution_context(
 
     """
     is_sda_step = step_context.is_sda_step
-    is_op_in_graph_asset = step_context.is_graph_asset_op
+    is_op_in_graph_asset = is_sda_step and step_context.is_op_in_graph
     context_annotation = EmptyAnnotation
     compute_fn = step_context.op_def._compute_fn  # noqa: SLF001
     compute_fn = (
