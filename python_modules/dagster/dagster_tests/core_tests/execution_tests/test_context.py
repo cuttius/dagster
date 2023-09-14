@@ -154,7 +154,9 @@ def test_graph_asset_with_op_context():
     def the_op(context: OpExecutionContext):
         assert isinstance(context, OpExecutionContext)
         # AssetExecutionContext is an instance of OpExecutionContext, so add this additional check
-        assert not isinstance(context, AssetExecutionContext)
+        assert not isinstance(
+            context, AssetExecutionContext
+        )  # fails, context is an AssetExecutionContext in current impl
 
     @graph_asset
     def the_graph_asset():
