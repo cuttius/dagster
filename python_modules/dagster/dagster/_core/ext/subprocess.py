@@ -5,7 +5,6 @@ from dagster_ext import ExtExtras
 
 from dagster import _check as check
 from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.definitions.result import MaterializeResult
 from dagster._core.errors import DagsterExternalExecutionError
 from dagster._core.execution.context.compute import OpExecutionContext
 from dagster._core.ext.client import (
@@ -13,6 +12,7 @@ from dagster._core.ext.client import (
     ExtContextInjector,
     ExtMessageReader,
 )
+from dagster._core.ext.context import ExtResult
 from dagster._core.ext.utils import (
     ExtTempFileContextInjector,
     ExtTempFileMessageReader,
@@ -67,7 +67,7 @@ class _ExtSubprocess(ExtClient):
         extras: Optional[ExtExtras] = None,
         env: Optional[Mapping[str, str]] = None,
         cwd: Optional[str] = None,
-    ) -> Iterator[MaterializeResult]:
+    ) -> Iterator[ExtResult]:
         with ext_protocol(
             context=context,
             context_injector=self.context_injector,
@@ -84,7 +84,7 @@ class _ExtSubprocess(ExtClient):
                 },
             )
             while True:
-                yield from ext_context.get_materialize_results()
+                yield from ext_context.get_results()
                 if process.poll() is not None:
                     break
 
@@ -92,7 +92,7 @@ class _ExtSubprocess(ExtClient):
                 raise DagsterExternalExecutionError(
                     f"External execution process failed with code {process.returncode}"
                 )
-        yield from ext_context.get_materialize_results()
+        yield from ext_context.get_results()
 
 
 ExtSubprocess = ResourceParam[_ExtSubprocess]

@@ -9,10 +9,10 @@ from typing import Iterator, Mapping, Optional
 
 import dagster._check as check
 from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.definitions.result import MaterializeResult
 from dagster._core.errors import DagsterExternalExecutionError
 from dagster._core.execution.context.compute import OpExecutionContext
 from dagster._core.ext.client import ExtClient, ExtContextInjector, ExtMessageReader
+from dagster._core.ext.context import ExtResult
 from dagster._core.ext.utils import (
     ExtBlobStoreMessageReader,
     ext_protocol,
@@ -67,7 +67,7 @@ class _ExtDatabricks(ExtClient):
         context: OpExecutionContext,
         extras: Optional[ExtExtras] = None,
         submit_args: Optional[Mapping[str, str]] = None,
-    ) -> Iterator[MaterializeResult]:
+    ) -> Iterator[ExtResult]:
         """Run a Databricks job with the EXT protocol.
 
         Args:
@@ -116,9 +116,9 @@ class _ExtDatabricks(ExtClient):
                     raise DagsterExternalExecutionError(
                         f"Error running Databricks job: {run.state.state_message}"
                     )
-                yield from ext_context.get_materialize_results()
+                yield from ext_context.get_results()
                 time.sleep(5)
-        yield from ext_context.get_materialize_results()
+        yield from ext_context.get_results()
 
 
 ExtDatabricks = ResourceParam[_ExtDatabricks]

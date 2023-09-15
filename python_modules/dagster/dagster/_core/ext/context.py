@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any, Dict, Iterator, Mapping, Optional, Set
+from typing import Any, Iterator, Mapping, Optional, Set, Union
 
 from dagster_ext import (
     DAGSTER_EXT_ENV_KEYS,
@@ -12,12 +12,16 @@ from dagster_ext import (
     ExtExtras,
     ExtMessage,
     ExtMetadataType,
+    ExtMetadataValue,
     ExtParams,
     ExtTimeWindow,
     encode_env_var,
 )
+from typing_extensions import TypeAlias
 
 import dagster._check as check
+from dagster._core.definitions.asset_check_result import AssetCheckResult
+from dagster._core.definitions.asset_check_spec import AssetCheckSeverity
 from dagster._core.definitions.data_version import DataProvenance, DataVersion
 from dagster._core.definitions.events import AssetKey
 from dagster._core.definitions.metadata import MetadataValue, normalize_metadata_value
@@ -28,16 +32,16 @@ from dagster._core.execution.context.compute import OpExecutionContext
 from dagster._core.execution.context.invocation import BoundOpExecutionContext
 from dagster._core.ext.client import ExtMessageReader
 
+ExtResult: TypeAlias = Union[MaterializeResult, AssetCheckResult]
+
 
 class ExtMessageHandler:
     def __init__(self, context: OpExecutionContext) -> None:
         self._context = context
         # Queue is thread-safe
-        self._result_queue: Queue[MaterializeResult] = Queue()
+        self._result_queue: Queue[ExtResult] = Queue()
         # Only read by the main thread after all messages are handled, so no need for a lock
         self._unmaterialized_assets: Set[AssetKey] = set(context.selected_asset_keys)
-        self._metadata: Dict[AssetKey, Dict[str, MetadataValue]] = {}
-        self._data_versions: Dict[AssetKey, DataVersion] = {}
 
     @contextmanager
     def handle_messages(self, message_reader: ExtMessageReader) -> Iterator[ExtParams]:
@@ -46,7 +50,7 @@ class ExtMessageHandler:
         for key in self._unmaterialized_assets:
             self._result_queue.put(MaterializeResult(asset_key=key))
 
-    def clear_result_queue(self) -> Iterator[MaterializeResult]:
+    def clear_result_queue(self) -> Iterator[ExtResult]:
         while not self._result_queue.empty():
             yield self._result_queue.get()
 
@@ -86,6 +90,8 @@ class ExtMessageHandler:
     def handle_message(self, message: ExtMessage) -> None:
         if message["method"] == "report_asset_materialization":
             self._handle_report_asset_materialization(**message["params"])  # type: ignore
+        elif message["method"] == "report_asset_check":
+            self._handle_report_asset_check(**message["params"])  # type: ignore
         elif message["method"] == "log":
             self._handle_log(**message["params"])  # type: ignore
 
@@ -107,6 +113,33 @@ class ExtMessageHandler:
         )
         self._result_queue.put(result)
         self._unmaterialized_assets.remove(resolved_asset_key)
+
+    def _handle_report_asset_check(
+        self,
+        asset_key: str,
+        check_name: str,
+        success: bool,
+        severity: str,
+        metadata: Mapping[str, ExtMetadataValue],
+    ) -> None:
+        check.str_param(asset_key, "asset_key")
+        check.str_param(check_name, "check_name")
+        check.bool_param(success, "success")
+        check.literal_param(severity, "severity", [x.value for x in AssetCheckSeverity])
+        metadata = check.opt_mapping_param(metadata, "metadata", key_type=str)
+        resolved_asset_key = AssetKey.from_user_string(asset_key)
+        resolved_metadata = {
+            k: self._resolve_metadata_value(v["raw_value"], v["type"]) for k, v in metadata.items()
+        }
+        resolved_severity = AssetCheckSeverity(severity)
+        result = AssetCheckResult(
+            asset_key=resolved_asset_key,
+            check_name=check_name,
+            success=success,
+            severity=resolved_severity,
+            metadata=resolved_metadata,
+        )
+        self._result_queue.put(result)
 
     def _handle_log(self, message: str, level: str = "info") -> None:
         check.str_param(message, "message")
@@ -138,7 +171,7 @@ class ExtOrchestrationContext:
             ),
         }
 
-    def get_materialize_results(self) -> Iterator[MaterializeResult]:
+    def get_results(self) -> Iterator[ExtResult]:
         yield from self.message_handler.clear_result_queue()
 
 

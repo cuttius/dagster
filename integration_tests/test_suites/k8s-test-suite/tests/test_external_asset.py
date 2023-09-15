@@ -197,7 +197,7 @@ def test_use_excute_k8s_job(namespace, cluster_provider):
                 k8s_job_name=job_name,
             )
             reader.consume_pod_logs(core_api, job_name, namespace)
-        yield from ext_context.get_materialize_results()
+        yield from ext_context.get_results()
 
     result = materialize(
         [number_y_job],

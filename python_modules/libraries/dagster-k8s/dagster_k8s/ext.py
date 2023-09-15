@@ -9,7 +9,6 @@ from dagster import (
     _check as check,
 )
 from dagster._core.definitions.resource_annotation import ResourceParam
-from dagster._core.definitions.result import MaterializeResult
 from dagster._core.errors import DagsterInvariantViolationError
 from dagster._core.ext.client import (
     ExtClient,
@@ -19,6 +18,7 @@ from dagster._core.ext.client import (
 )
 from dagster._core.ext.context import (
     ExtMessageHandler,
+    ExtResult,
 )
 from dagster._core.ext.utils import (
     ExtEnvContextInjector,
@@ -124,7 +124,7 @@ class _ExtK8sPod(ExtClient):
         base_pod_meta: Optional[Mapping[str, Any]] = None,
         base_pod_spec: Optional[Mapping[str, Any]] = None,
         extras: Optional[ExtExtras] = None,
-    ) -> Iterator[MaterializeResult]:
+    ) -> Iterator[ExtResult]:
         """Publish a kubernetes pod and wait for it to complete, enriched with the ext protocol.
 
         Args:
@@ -197,7 +197,7 @@ class _ExtK8sPod(ExtClient):
                     )
             finally:
                 client.core_api.delete_namespaced_pod(pod_name, namespace)
-        return ext_context.get_materialize_results()
+        return ext_context.get_results()
 
 
 def build_pod_body(
