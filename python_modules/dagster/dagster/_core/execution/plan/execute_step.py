@@ -781,10 +781,12 @@ def _store_output(
     asset_key, partitions = _asset_key_and_partitions_for_output(output_context)
     if asset_key:
         assets_def = step_context.job_def.asset_layer.assets_def_for_asset(asset_key)
-        if (
-            assets_def.asset_execution_type_for_asset(asset_key)
-            == AssetExecutionType.MATERIALIZATION
-        ):
+        execution_type = assets_def.asset_execution_type_for_asset(asset_key)
+        check.invariant(
+            execution_type != AssetExecutionType.UNEXECUTABLE,
+            "There should never be unexecutable assets here",
+        )
+        if execution_type == AssetExecutionType.MATERIALIZATION:
             for materialization in _get_output_asset_materializations(
                 asset_key,
                 partitions,
@@ -794,6 +796,11 @@ def _store_output(
                 step_context,
             ):
                 yield DagsterEvent.asset_materialization(step_context, materialization)
+        elif execution_type == AssetExecutionType.OBSERVATION:
+            # if this is an observation execution type, yield no materializations
+            pass
+        else:
+            check.failed(f"Unexpected asset execution type {execution_type}")
 
     yield DagsterEvent.handled_output(
         step_context,
