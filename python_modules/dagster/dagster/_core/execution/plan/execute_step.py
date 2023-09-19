@@ -131,7 +131,7 @@ def _process_user_event(
         output_name = step_context.job_def.asset_layer.get_output_name_for_asset_check(
             asset_check_evaluation.asset_check_handle
         )
-        output = Output(value=None, output_name=output_name)
+        output = Output(value=asset_check_evaluation, output_name=output_name)
 
         yield asset_check_evaluation
 
@@ -696,9 +696,12 @@ def _store_output(
     manager_metadata: Dict[str, MetadataValue] = {}
 
     # don't store asset check outputs
-    if step_context.step.step_output_named(
-        step_output_handle.output_name
-    ).properties.asset_check_handle:
+    if (
+        step_context.step.step_output_named(
+            step_output_handle.output_name
+        ).properties.asset_check_handle
+        and False
+    ):  # disable
 
         def _no_op() -> Iterator[DagsterEvent]:
             yield from ()
