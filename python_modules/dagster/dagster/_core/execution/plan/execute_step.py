@@ -25,6 +25,7 @@ from dagster._core.definitions import (
     TypeCheck,
 )
 from dagster._core.definitions.asset_check_result import AssetCheckResult
+from dagster._core.definitions.asset_spec import AssetExecutionType
 from dagster._core.definitions.data_version import (
     CODE_VERSION_TAG,
     DATA_VERSION_IS_USER_PROVIDED_TAG,
@@ -779,15 +780,20 @@ def _store_output(
 
     asset_key, partitions = _asset_key_and_partitions_for_output(output_context)
     if asset_key:
-        for materialization in _get_output_asset_materializations(
-            asset_key,
-            partitions,
-            output,
-            output_def,
-            manager_metadata,
-            step_context,
+        assets_def = step_context.job_def.asset_layer.assets_def_for_asset(asset_key)
+        if (
+            assets_def.asset_execution_type_for_asset(asset_key)
+            == AssetExecutionType.MATERIALIZATION
         ):
-            yield DagsterEvent.asset_materialization(step_context, materialization)
+            for materialization in _get_output_asset_materializations(
+                asset_key,
+                partitions,
+                output,
+                output_def,
+                manager_metadata,
+                step_context,
+            ):
+                yield DagsterEvent.asset_materialization(step_context, materialization)
 
     yield DagsterEvent.handled_output(
         step_context,
