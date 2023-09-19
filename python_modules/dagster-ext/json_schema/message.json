@@ -1,5 +1,9 @@
 {
   "properties": {
+    "dagster_ext_version": {
+      "title": "Dagster Ext Version",
+      "type": "string"
+    },
     "method": {
       "title": "Method",
       "type": "string"
@@ -17,6 +21,7 @@
     }
   },
   "required": [
+    "dagster_ext_version",
     "method",
     "params"
   ],

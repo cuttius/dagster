@@ -5,6 +5,7 @@ import pytest
 from dagster_ext import (
     CONTEXT_JSON_SCHEMA,
     MESSAGE_JSON_SCHEMA,
+    PROTOCOL_VERSION,
     DagsterExtError,
     ExtContext,
     ExtContextData,
@@ -169,8 +170,8 @@ def test_extras_context():
 
 
 def test_message_json_schema_validation():
-    notification = {"method": "foo", "params": {"bar": "baz"}}
-    jsonschema.validate(notification, MESSAGE_JSON_SCHEMA)
+    message = {"dagster_ext_version": PROTOCOL_VERSION, "method": "foo", "params": {"bar": "baz"}}
+    jsonschema.validate(message, MESSAGE_JSON_SCHEMA)
 
 
 def test_json_schema_rejects_invalid():
