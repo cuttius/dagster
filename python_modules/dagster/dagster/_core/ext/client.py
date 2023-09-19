@@ -34,3 +34,9 @@ class ExtMessageReader(ABC):
     @abstractmethod
     @contextmanager
     def read_messages(self, handler: "ExtMessageHandler") -> Iterator[ExtParams]: ...
+
+
+class ExtLogReader(ABC):
+    @abstractmethod
+    @contextmanager
+    def read_logs(self) -> Iterator[ExtParams]: ...
