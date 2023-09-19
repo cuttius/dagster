@@ -28,7 +28,13 @@ from typing_extensions import TypeAlias
 
 import dagster._check as check
 from dagster._annotations import public
+from dagster._core.definitions.events import (
+    AssetMaterialization,
+    AssetObservation,
+    UserEvent,
+)
 from dagster._core.definitions.instigation_logger import InstigationLogger
+from dagster._core.definitions.job_definition import JobDefinition
 from dagster._core.definitions.partition import (
     CachingDynamicPartitionsLoader,
 )
@@ -55,7 +61,6 @@ from ..decorator_utils import (
 )
 from .asset_selection import AssetSelection
 from .graph_definition import GraphDefinition
-from .job_definition import JobDefinition
 from .run_request import (
     AddDynamicPartitionsRequest,
     DagsterRunReaction,
@@ -72,6 +77,7 @@ if TYPE_CHECKING:
     from dagster import ResourceDefinition
     from dagster._core.definitions.definitions_class import Definitions
     from dagster._core.definitions.repository_definition import RepositoryDefinition
+    from dagster._core.events import DagsterEvent
 
 
 @whitelist_for_serdes
@@ -178,6 +184,7 @@ class SensorEvaluationContext:
         )
         self._logger: Optional[InstigationLogger] = None
         self._cursor_updated = False
+        self._events: List["DagsterEvent"] = []
 
     def __enter__(self) -> "SensorEvaluationContext":
         self._cm_scope_entered = True
@@ -372,6 +379,55 @@ class SensorEvaluationContext:
     @property
     def log_key(self) -> Optional[List[str]]:
         return self._log_key
+
+    @public
+    def log_event(self, event: UserEvent) -> None:
+        from dagster._core.events import (
+            AssetObservationData,
+            DagsterEvent,
+            DagsterEventType,
+            StepMaterializationData,
+        )
+
+        """Log an AssetMaterialization, AssetObservation, or ExpectationResult from within the body of an op.
+
+        Events logged with this method will appear in the list of DagsterEvents, as well as the event log.
+
+        Args:
+            event (Union[AssetMaterialization, AssetObservation, ExpectationResult]): The event to log.
+
+        **Examples:**
+
+        .. code-block:: python
+
+            from dagster import op, AssetMaterialization
+
+            @op
+            def log_materialization(context):
+                context.log_event(AssetMaterialization("foo"))
+        """
+        dagster_event = None
+        if isinstance(event, AssetMaterialization):
+            event_type_value = DagsterEventType.ASSET_MATERIALIZATION.value
+            data_payload = StepMaterializationData(event)
+            dagster_event = DagsterEvent(
+                event_type_value=event_type_value,
+                event_specific_data=data_payload,
+                job_name="",  # RUNLESS_JOB_NAME
+            )
+
+        elif isinstance(event, AssetObservation):
+            event_type_value = DagsterEventType.ASSET_OBSERVATION.value
+            data_payload = AssetObservationData(event)
+            dagster_event = DagsterEvent(
+                event_type_value=event_type_value,
+                event_specific_data=data_payload,
+                job_name="",  # RUNLESS_JOB_NAME
+            )
+        else:
+            raise DagsterInvariantViolationError(f"Unsupported event type: {type(event)}")
+
+        self._events.append(dagster_event)
 
 
 RawSensorEvaluationFunctionReturn = Union[
@@ -799,6 +855,7 @@ class SensorDefinition(IHasInternalInit):
             dagster_run_reactions,
             captured_log_key=context.log_key if context.has_captured_logs() else None,
             dynamic_partitions_requests=dynamic_partitions_requests,
+            dagster_events=context._events,  # noqa: SLF001
         )
 
     def has_loadable_targets(self) -> bool:
@@ -939,6 +996,10 @@ class SensorExecutionData(
                     Sequence[Union[AddDynamicPartitionsRequest, DeleteDynamicPartitionsRequest]]
                 ],
             ),
+            (
+                "dagster_events",
+                List["DagsterEvent"],
+            ),
         ],
     )
 ):
@@ -954,6 +1015,7 @@ class SensorExecutionData(
         dynamic_partitions_requests: Optional[
             Sequence[Union[AddDynamicPartitionsRequest, DeleteDynamicPartitionsRequest]]
         ] = None,
+        dagster_events: Optional[Iterable["DagsterEvent"]] = None,
     ):
         check.opt_sequence_param(run_requests, "run_requests", RunRequest)
         check.opt_str_param(skip_message, "skip_message")
@@ -968,6 +1030,7 @@ class SensorExecutionData(
         check.invariant(
             not (run_requests and skip_message), "Found both skip data and run request data"
         )
+        # TODO DagsterEvent type check
         return super(SensorExecutionData, cls).__new__(
             cls,
             run_requests=run_requests,
@@ -976,6 +1039,7 @@ class SensorExecutionData(
             dagster_run_reactions=dagster_run_reactions,
             captured_log_key=captured_log_key,
             dynamic_partitions_requests=dynamic_partitions_requests,
+            dagster_events=list(dagster_events) if dagster_events else [],
         )
 
 

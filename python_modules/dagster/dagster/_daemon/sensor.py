@@ -679,6 +679,9 @@ def _evaluate_sensor(
 
     assert isinstance(sensor_runtime_data, SensorExecutionData)
 
+    for dagster_event in sensor_runtime_data.dagster_events or []:
+        instance.report_dagster_event(dagster_event, run_id="")
+
     if sensor_runtime_data.dynamic_partitions_requests:
         for request in sensor_runtime_data.dynamic_partitions_requests:
             existent_partitions = []

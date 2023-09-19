@@ -16,13 +16,28 @@ from dagster import (
     asset,
     observable_source_asset,
 )
-from dagster._core.definitions.asset_spec import AssetSpec
+from dagster._core.definitions import materialize
+from dagster._core.definitions.asset_spec import (
+    SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE,
+    AssetExecutionType,
+    AssetSpec,
+)
+from dagster._core.definitions.data_version import DATA_VERSION_TAG
+from dagster._core.definitions.decorators.sensor_decorator import sensor
+from dagster._core.definitions.events import AssetObservation
 from dagster._core.definitions.freshness_policy import FreshnessPolicy
 from dagster._core.definitions.observable_asset import (
     create_assets_def_from_source_asset,
     create_unexecutable_observable_assets_def,
 )
+from dagster._core.definitions.run_request import SkipReason
+from dagster._core.definitions.sensor_definition import (
+    SensorEvaluationContext,
+    build_sensor_context,
+)
 from dagster._core.definitions.time_window_partitions import DailyPartitionsDefinition
+from dagster._core.event_api import EventRecordsFilter
+from dagster._core.events import DagsterEventType
 
 
 def test_observable_asset_basic_creation() -> None:
@@ -215,3 +230,67 @@ def test_observable_source_asset_decorator() -> None:
 
     all_materializations = result.get_asset_materialization_events()
     assert len(all_materializations) == 0
+
+
+def get_latest_asset_observation(
+    instance: DagsterInstance, asset_key: AssetKey
+) -> AssetObservation:
+    event_records = instance.get_event_records(
+        EventRecordsFilter(
+            event_type=DagsterEventType.ASSET_OBSERVATION,
+            asset_key=asset_key,
+        ),
+        limit=1,
+    )
+
+    assert len(event_records) == 1
+
+    event_record = event_records[0]
+
+    return check.not_none(event_record.asset_observation)
+
+
+def test_demonstrate_explicit_sensor_in_user_space() -> None:
+    def compute_data_version() -> str:
+        return "data_version"
+
+    observing_only_asset_key = AssetKey("observing_only_asset")
+
+    @asset(
+        key=observing_only_asset_key,
+        metadata={SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE: AssetExecutionType.OBSERVATION.value},
+    )
+    def observing_only_asset(context: AssetExecutionContext) -> None:
+        context.log_event(
+            AssetObservation(
+                asset_key=observing_only_asset_key, tags={DATA_VERSION_TAG: compute_data_version()}
+            )
+        )
+
+    asset_execution_instance = DagsterInstance.ephemeral()
+
+    assert materialize(assets=[observing_only_asset], instance=asset_execution_instance).success
+
+    assert (
+        get_latest_asset_observation(
+            asset_execution_instance, observing_only_asset_key
+        ).data_version
+        == "data_version"
+    )
+
+    @sensor(job_name="observing_only_sensor")
+    def observing_only_asset_sensor(context: SensorEvaluationContext) -> SkipReason:
+        context.log_event(
+            AssetObservation(
+                asset_key=observing_only_asset_key, tags={DATA_VERSION_TAG: compute_data_version()}
+            )
+        )
+        return SkipReason("Never kicks off run")
+
+    sensor_instance = DagsterInstance.ephemeral()
+
+    sensor_execution_data = observing_only_asset_sensor.evaluate_tick(
+        build_sensor_context(instance=sensor_instance)
+    )
+
+    assert len(sensor_execution_data.dagster_events) == 1
