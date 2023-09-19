@@ -28,6 +28,7 @@ SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE = "dagster/asset_execution_type"
 class AssetExecutionType(Enum):
     UNEXECUTABLE = "UNEXECUTABLE"
     MATERIALIZATION = "MATERIALIZATION"
+    UNEXECUTABLE_SOURCE = "UNEXECUTABLE_SOURCE"
 
     @staticmethod
     def is_executable(varietal_str: Optional[str]) -> bool:

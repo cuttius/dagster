@@ -20,7 +20,14 @@ from dagster._core.definitions.observable_asset import (
     create_unexecutable_observable_assets_def,
     create_unexecutable_observable_assets_def_from_source_asset,
 )
+from dagster._core.definitions.repository_definition.repository_definition import (
+    RepositoryDefinition,
+)
 from dagster._core.definitions.time_window_partitions import DailyPartitionsDefinition
+from dagster._core.errors import DagsterInvalidSubsetError
+from dagster._core.host_representation.external_data import (
+    external_repository_data_from_def,
+)
 
 
 def test_observable_asset_basic_creation() -> None:
@@ -86,6 +93,17 @@ def test_observable_asset_creation_with_deps() -> None:
     }
 
 
+def _get_external_node_from_defs(defs: Definitions, asset_key: AssetKey):
+    repo = defs.get_inner_repository_for_loading_process()
+    assert isinstance(repo, RepositoryDefinition)
+    external_repo = external_repository_data_from_def(repo)
+    for node in external_repo.external_asset_graph_data:
+        if node.asset_key == asset_key:
+            return node
+
+    assert False, f"Could not find {asset_key} in defs"
+
+
 def test_how_source_assets_are_backwards_compatible() -> None:
     class DummyIOManager(IOManager):
         def handle_output(self, context, obj) -> None:
@@ -119,12 +137,15 @@ def test_how_source_assets_are_backwards_compatible() -> None:
 
     result_two = defs_with_shim.get_implicit_global_asset_job_def().execute_in_process(
         instance=instance,
-        # currently we have to explicitly select the asset to exclude the source from execution
-        asset_selection=[AssetKey("an_asset")],
     )
 
     assert result_two.success
     assert result_two.output_for_node("an_asset") == "hardcoded-computed"
+
+    # ensure same x-process repr
+    source_node = _get_external_node_from_defs(defs_with_source, AssetKey("source_asset"))
+    shim_node = _get_external_node_from_defs(defs_with_shim, AssetKey("source_asset"))
+    assert source_node == shim_node
 
 
 def get_job_for_assets(defs: Definitions, *coercibles_or_defs) -> JobDefinition:
@@ -175,21 +196,76 @@ def test_how_partitioned_source_assets_are_backwards_compatible() -> None:
     assert result_one.success
     assert result_one.output_for_node("an_asset") == "hardcoded-computed-2021-01-02"
 
-    shimmed_source_asset = create_unexecutable_observable_assets_def_from_source_asset(source_asset)
+    create_unexecutable_observable_assets_def_from_source_asset(source_asset)
     defs_with_shim = Definitions(
         assets=[create_unexecutable_observable_assets_def_from_source_asset(source_asset), an_asset]
     )
 
     assert isinstance(defs_with_shim.get_assets_def("source_asset"), AssetsDefinition)
 
-    job_def_with_shim = get_job_for_assets(defs_with_shim, an_asset, shimmed_source_asset)
+    job_def_with_shim = get_job_for_assets(defs_with_shim, an_asset)
 
     result_two = job_def_with_shim.execute_in_process(
         instance=instance,
-        # currently we have to explicitly select the asset to exclude the source from execution
-        asset_selection=[AssetKey("an_asset")],
         partition_key="2021-01-03",
     )
 
     assert result_two.success
     assert result_two.output_for_node("an_asset") == "hardcoded-computed-2021-01-03"
+
+
+def test_non_executable_asset_excluded_from_job() -> None:
+    upstream_asset = create_unexecutable_observable_assets_def(
+        specs=[AssetSpec("upstream_asset")],
+    )
+
+    @asset(deps=[upstream_asset])
+    def downstream_asset() -> None: ...
+
+    defs = Definitions(assets=[upstream_asset, downstream_asset])
+
+    assert defs.get_implicit_global_asset_job_def().execute_in_process().success
+
+    # ensure that explict selection fails
+    with pytest.raises(
+        DagsterInvalidSubsetError,
+        match=(
+            r'Assets provided in asset_selection argument \["upstream_asset"\] do not exist in'
+            r" parent asset group or job"
+        ),
+    ):
+        defs.get_implicit_global_asset_job_def().execute_in_process(
+            asset_selection=[AssetKey("upstream_asset")]
+        )
+
+
+def test_external_rep():
+    table_a = AssetSpec("table_A")
+    table_b = AssetSpec("table_B", deps=[table_a])
+    table_c = AssetSpec("table_C", deps=[table_a])
+    table_d = AssetSpec("table_D", deps=[table_b, table_c])
+
+    those_assets = create_unexecutable_observable_assets_def(
+        specs=[table_a, table_b, table_c, table_d]
+    )
+
+    defs = Definitions(assets=[those_assets])
+    repo = defs.get_inner_repository_for_loading_process()
+    assert isinstance(repo, RepositoryDefinition)
+    external_repo = external_repository_data_from_def(repo)
+
+    assert len(external_repo.external_asset_graph_data) == 4
+
+    nodes_by_key = {node.asset_key: node for node in external_repo.external_asset_graph_data}
+
+    assert len(nodes_by_key[table_a.key].depended_by) == 2
+    assert len(nodes_by_key[table_a.key].dependencies) == 0
+
+    assert len(nodes_by_key[table_b.key].depended_by) == 1
+    assert len(nodes_by_key[table_b.key].dependencies) == 1
+
+    assert len(nodes_by_key[table_c.key].depended_by) == 1
+    assert len(nodes_by_key[table_c.key].dependencies) == 1
+
+    assert len(nodes_by_key[table_d.key].depended_by) == 0
+    assert len(nodes_by_key[table_d.key].dependencies) == 2

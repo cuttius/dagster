@@ -45,7 +45,7 @@ def create_unexecutable_observable_assets_def(specs: Sequence[AssetSpec]):
         )
 
     @multi_asset(specs=new_specs)
-    def an_asset() -> None:
+    def an_asset():
         raise DagsterInvariantViolationError(
             f"You have attempted to execute an unexecutable asset {[spec.key for spec in specs]}"
         )
@@ -67,7 +67,11 @@ def create_unexecutable_observable_assets_def_from_source_asset(source_asset: So
         "key": source_asset.key,
         "metadata": {
             **source_asset.metadata,
-            **{SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE: AssetExecutionType.UNEXECUTABLE.value},
+            **{
+                SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE: (
+                    AssetExecutionType.UNEXECUTABLE_SOURCE.value
+                )
+            },
         },
         "group_name": source_asset.group_name,
         "description": source_asset.description,

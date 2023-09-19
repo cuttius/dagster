@@ -876,6 +876,40 @@ class AssetsDefinition(ResourceAddable, RequiresResources, IHasInternalInit):
             self._metadata_by_key.get(asset_key, {}).get(SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE)
         )
 
+    def is_executable(self):
+        """Returns True if this definition represents unexecutable assets.
+        Assumption: either all or none contained assets are unexecutable.
+        """
+        for key in self.keys:
+            if not self.is_asset_executable(key):
+                return False
+        return True
+
+    def is_unexecutable_source(self):
+        """Returns True if this definition represents unexecutable source assets.
+        Assumption: either all or none contained assets are unexecutable source assets.
+        """
+        for key in self.keys:
+            if not self.is_unexecutable_source_asset(key):
+                return False
+        return True
+
+    def is_unexecutable_source_asset(self, asset_key: AssetKey) -> bool:
+        """Returns True if the asset key is an unexecutable source asset."""
+        from dagster._core.definitions.asset_spec import (
+            SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE,
+            AssetExecutionType,
+        )
+
+        return (
+            AssetExecutionType.str_to_enum(
+                self._metadata_by_key.get(asset_key, {}).get(
+                    SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE
+                )
+            )
+            == AssetExecutionType.UNEXECUTABLE_SOURCE
+        )
+
     def get_partition_mapping_for_input(self, input_name: str) -> Optional[PartitionMapping]:
         return self._partition_mappings.get(self._keys_by_input_name[input_name])
 

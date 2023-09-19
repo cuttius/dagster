@@ -10,6 +10,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Any,
     Dict,
     Iterable,
@@ -51,6 +52,7 @@ from dagster._core.definitions.asset_spec import (
     SYSTEM_METADATA_KEY_ASSET_EXECUTION_TYPE,
     AssetExecutionType,
 )
+from dagster._core.definitions.assets import AssetsDefinition
 from dagster._core.definitions.assets_job import is_base_asset_job_name
 from dagster._core.definitions.auto_materialize_policy import AutoMaterializePolicy
 from dagster._core.definitions.backfill_policy import BackfillPolicy
@@ -1341,6 +1343,11 @@ def external_repository_data_from_def(
     asset_graph = external_asset_graph_from_defs(
         jobs,
         source_assets_by_key=repository_def.source_assets_by_key,
+        unexecutable_assets={
+            assets_def
+            for assets_def in repository_def.assets_defs_by_key.values()
+            if not assets_def.is_executable()
+        },
     )
 
     nested_resource_map = _get_nested_resources_map(
@@ -1462,6 +1469,7 @@ def external_asset_checks_from_defs(
 def external_asset_graph_from_defs(
     job_defs: Sequence[JobDefinition],
     source_assets_by_key: Mapping[AssetKey, SourceAsset],
+    unexecutable_assets: Optional[AbstractSet[AssetsDefinition]] = None,  # drop default value
 ) -> Sequence[ExternalAssetNode]:
     node_defs_by_asset_key: Dict[AssetKey, List[Tuple[NodeOutputHandle, JobDefinition]]] = (
         defaultdict(list)
@@ -1658,6 +1666,30 @@ def external_asset_graph_from_defs(
                 required_top_level_resources=required_top_level_resources,
             )
         )
+
+    # resolve deps unexec assets since they are not encoded in jobs
+    for unexec_def in unexecutable_assets or []:
+        for key in unexec_def.keys:
+            for depends_on in unexec_def.asset_deps[key]:
+                deps[key][depends_on] = ExternalAssetDependency(depends_on)
+                dep_by[depends_on][key] = ExternalAssetDependedBy(key)
+
+    # build nodes for unexec assets
+    for unexec_def in unexecutable_assets or []:
+        for key in unexec_def.keys:
+            asset_nodes.append(
+                ExternalAssetNode(
+                    asset_key=key,
+                    dependencies=list(deps[key].values()),
+                    depended_by=list(dep_by[key].values()),
+                    metadata=unexec_def.metadata_by_key[key],
+                    group_name=unexec_def.group_names_by_key[key],
+                    is_source=unexec_def.is_unexecutable_source(),
+                    is_observable=False,
+                    # could use a special kind tag for more UI punch
+                    # compute_kind=...
+                )
+            )
 
     return asset_nodes
 
