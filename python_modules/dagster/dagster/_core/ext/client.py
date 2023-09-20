@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Iterator, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from dagster_ext import (
     ExtContextData,
@@ -23,7 +23,7 @@ class ExtClient(ABC):
         *,
         context: OpExecutionContext,
         extras: Optional[ExtExtras] = None,
-    ) -> Union["MaterializeResult", Tuple["MaterializeResult", ...]]: ...
+    ) -> Iterator["MaterializeResult"]: ...
 
 
 class ExtContextInjector(ABC):

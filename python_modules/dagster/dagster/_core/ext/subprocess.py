@@ -1,5 +1,5 @@
 from subprocess import Popen
-from typing import Mapping, Optional, Sequence, Tuple, Union
+from typing import Iterator, Mapping, Optional, Sequence, Union
 
 from dagster_ext import ExtExtras
 
@@ -67,7 +67,7 @@ class _ExtSubprocess(ExtClient):
         extras: Optional[ExtExtras] = None,
         env: Optional[Mapping[str, str]] = None,
         cwd: Optional[str] = None,
-    ) -> Union[MaterializeResult, Tuple[MaterializeResult, ...]]:
+    ) -> Iterator[MaterializeResult]:
         with ext_protocol(
             context=context,
             context_injector=self.context_injector,
@@ -83,14 +83,16 @@ class _ExtSubprocess(ExtClient):
                     **(env or {}),
                 },
             )
-            process.wait()
+            while True:
+                yield from ext_context.get_materialize_results()
+                if process.poll() is not None:
+                    break
 
             if process.returncode != 0:
                 raise DagsterExternalExecutionError(
                     f"External execution process failed with code {process.returncode}"
                 )
-        mat_results = ext_context.get_materialize_results()
-        return mat_results[0] if len(mat_results) == 1 else mat_results
+        yield from ext_context.get_materialize_results()
 
 
 ExtSubprocess = ResourceParam[_ExtSubprocess]

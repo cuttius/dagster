@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Any, Iterator, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Iterator, Mapping, Optional, Sequence, Union
 
 import docker
 from dagster import (
@@ -95,7 +95,7 @@ class _ExtDocker(ExtClient):
         registry: Optional[Mapping[str, str]] = None,
         container_kwargs: Optional[Mapping[str, Any]] = None,
         extras: Optional[ExtExtras] = None,
-    ) -> Union[MaterializeResult, Tuple[MaterializeResult, ...]]:
+    ) -> Iterator[MaterializeResult]:
         """Create a docker container and run it to completion, enriched with the ext protocol.
 
         Args:
