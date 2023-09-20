@@ -36,6 +36,7 @@ export type LaunchAssetExecutionAssetNodeFragment = {
     }>;
   } | null;
   assetKey: {__typename: 'AssetKey'; path: Array<string>};
+  assetChecks: Array<{__typename: 'AssetCheck'; name: string}>;
   dependencyKeys: Array<{__typename: 'AssetKey'; path: Array<string>}>;
   repository: {
     __typename: 'Repository';
@@ -626,6 +627,7 @@ export type LaunchAssetLoaderQuery = {
       }>;
     } | null;
     assetKey: {__typename: 'AssetKey'; path: Array<string>};
+    assetChecks: Array<{__typename: 'AssetCheck'; name: string}>;
     dependencyKeys: Array<{__typename: 'AssetKey'; path: Array<string>}>;
     repository: {
       __typename: 'Repository';

@@ -42,6 +42,8 @@ export interface IExecutionSession {
   mode: string | null;
   needsRefresh: boolean;
   assetSelection: {assetKey: AssetKeyInput; opNames: string[]}[] | null;
+  assetChecksAvailable: number;
+  assetChecksIncluded: boolean;
   solidSelection: string[] | null;
   solidSelectionQuery: string | null;
   flattenGraphs: boolean;
@@ -94,6 +96,8 @@ export const createSingleSession = (initial: IExecutionSessionChanges = {}, key?
     base: null,
     needsRefresh: false,
     assetSelection: null,
+    assetChecksAvailable: 0,
+    assetChecksIncluded: true,
     solidSelection: null,
     solidSelectionQuery: '*',
     flattenGraphs: false,

@@ -502,6 +502,8 @@ async function stateForLaunchingAssets(
       sessionPresets: {
         flattenGraphs: true,
         assetSelection: assets.map((a) => ({assetKey: a.assetKey, opNames: a.opNames})),
+        assetChecksAvailable: assets.flatMap((a) => a.assetChecks).length,
+        assetChecksIncluded: true,
         solidSelectionQuery: assetOpNames.map((name) => `"${name}"`).join(', '),
         base: partitionSetName
           ? {partitionsSetName: partitionSetName, partitionName: null, tags: []}
@@ -673,6 +675,9 @@ const LAUNCH_ASSET_EXECUTION_ASSET_NODE_FRAGMENT = gql`
     isSource
     assetKey {
       path
+    }
+    assetChecks {
+      name
     }
     dependencyKeys {
       path

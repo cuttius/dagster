@@ -13,6 +13,7 @@ import {
   TextInput,
   NewConfigEditor,
   ConfigEditorHandle,
+  Checkbox,
 } from '@dagster-io/ui-components';
 import merge from 'deepmerge';
 import uniqBy from 'lodash/uniqBy';
@@ -324,6 +325,10 @@ const LaunchpadSession: React.FC<LaunchpadSessionProps> = (props) => {
           assetSelection: currentSession.assetSelection
             ? currentSession.assetSelection.map((a) => ({path: a.assetKey.path}))
             : undefined,
+          assetCheckSelection:
+            currentSession.assetChecksAvailable && !currentSession.assetChecksIncluded
+              ? []
+              : undefined,
         },
         mode: currentSession.mode || 'default',
         executionMetadata: {
@@ -611,16 +616,27 @@ const LaunchpadSession: React.FC<LaunchpadSessionProps> = (props) => {
               />
               <SessionSettingsSpacer />
               {launchpadType === 'asset' ? (
-                <TextInput
-                  readOnly
-                  value={
-                    currentSession.assetSelection
-                      ? currentSession.assetSelection
-                          .map((a) => tokenForAssetKey(a.assetKey))
-                          .join(', ')
-                      : '*'
-                  }
-                />
+                <Box flex={{gap: 16, alignItems: 'center'}}>
+                  <TextInput
+                    readOnly
+                    value={
+                      currentSession.assetSelection
+                        ? currentSession.assetSelection
+                            .map((a) => tokenForAssetKey(a.assetKey))
+                            .join(', ')
+                        : '*'
+                    }
+                  />
+                  {currentSession.assetChecksAvailable > 0 ? (
+                    <Checkbox
+                      label={`Include ${currentSession.assetChecksAvailable.toLocaleString()} asset checks`}
+                      checked={currentSession.assetChecksIncluded}
+                      onChange={() =>
+                        onSaveSession({assetChecksIncluded: !currentSession.assetChecksIncluded})
+                      }
+                    />
+                  ) : undefined}
+                </Box>
               ) : (
                 <OpSelector
                   serverProvidedSubsetError={
