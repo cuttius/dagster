@@ -40,6 +40,7 @@ from dagster._core.definitions.partition_key_range import PartitionKeyRange
 from dagster._core.definitions.step_launcher import StepLauncher
 from dagster._core.definitions.time_window_partitions import TimeWindow
 from dagster._core.errors import (
+    DagsterInvalidDefinitionError,
     DagsterInvalidPropertyError,
     DagsterInvariantViolationError,
 )
@@ -1700,6 +1701,7 @@ class AssetExecutionContext(OpExecutionContext):
     def log_event(self, event: UserEvent) -> None:
         return self._op_execution_context.log_event(event)
 
+
 def build_execution_context(
     step_context: StepExecutionContext,
 ) -> Union[OpExecutionContext, AssetExecutionContext]:
@@ -1710,6 +1712,13 @@ def build_execution_context(
     asset         AssetExecutionContext     AssetExecutionContext
     asset         OpExecutionContext        OpExecutionContext
     asset         None                      AssetExecutionContext
+    op            AssetExecutionContext     Error - we cannot init an AssetExecutionContext w/o an AssetsDefinition
+    op            OpExecutionContext        OpExecutionContext
+    op            None                      OpExecutionContext
+
+
+    For ops in graph-backed assets
+    step type     annotation                result
     op            AssetExecutionContext     AssetExecutionContext
     op            OpExecutionContext        OpExecutionContext
     op            None                      OpExecutionContext
@@ -1727,6 +1736,17 @@ def build_execution_context(
     if compute_fn.has_context_arg():
         context_param = compute_fn.get_context_arg()
         context_annotation = context_param.annotation
+
+    # TODO - i dont know how to move this check to Definition time since we don't know if the op is
+    # part of a graph-backed asset until we have the step execution context, i think
+    if context_annotation is AssetExecutionContext and not is_sda_step:
+        # AssetExecutionContext requires an AssetsDefinition during init, so an op in an op job
+        # cannot be annotated with AssetExecutionContext
+        raise DagsterInvalidDefinitionError(
+            "Cannot annotate @op `context` parameter with type AssetExecutionContext unless the"
+            " op is part of a graph-backed asset. `context` must be annotated with"
+            " OpExecutionContext, or left blank."
+        )
 
     op_context = OpExecutionContext(step_context)
 

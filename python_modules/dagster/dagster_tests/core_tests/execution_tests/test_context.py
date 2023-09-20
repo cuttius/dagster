@@ -76,7 +76,11 @@ def test_context_provided_to_op():
     def asset_annotation_job():
         asset_annotation()
 
-    assert asset_annotation_job.execute_in_process().success
+    with pytest.raises(
+        DagsterInvalidDefinitionError,
+        match="Cannot annotate @op `context` parameter with type AssetExecutionContext",
+    ):
+        asset_annotation_job.execute_in_process()
 
     @op
     def op_annotation(context: OpExecutionContext):
@@ -209,15 +213,18 @@ def test_context_provided_to_plain_python():
     no_annotation_graph.to_job(name="no_annotation_job").execute_in_process()
 
     def asset_annotation(context: AssetExecutionContext, *args):
-        assert isinstance(context, AssetExecutionContext)
-        yield Output(1)
+        assert False, "Test should error during context creation"
 
     asset_annotation_op = OpDefinition(compute_fn=asset_annotation, name="asset_annotation_op")
     asset_annotation_graph = GraphDefinition(
         name="asset_annotation_graph", node_defs=[asset_annotation_op]
     )
 
-    asset_annotation_graph.to_job(name="asset_annotation_job").execute_in_process()
+    with pytest.raises(
+        DagsterInvalidDefinitionError,
+        match="Cannot annotate @op `context` parameter with type AssetExecutionContext",
+    ):
+        asset_annotation_graph.to_job(name="asset_annotation_job").execute_in_process()
 
     def op_annotation(context: OpExecutionContext, *args):
         assert isinstance(context, OpExecutionContext)
