@@ -679,7 +679,7 @@ def _evaluate_sensor(
 
     assert isinstance(sensor_runtime_data, SensorExecutionData)
 
-    for asset_event in sensor_runtime_data.asset_events or []:
+    for asset_event in sensor_runtime_data.asset_events:
         instance.report_runless_asset_event(asset_event)
 
     if sensor_runtime_data.dynamic_partitions_requests:
