@@ -11,6 +11,7 @@ from dagster import (
     Definitions,
     IOManager,
     JobDefinition,
+    SensorResult,
     SourceAsset,
     _check as check,
     asset,
@@ -30,9 +31,7 @@ from dagster._core.definitions.observable_asset import (
     create_assets_def_from_source_asset,
     create_unexecutable_observable_assets_def,
 )
-from dagster._core.definitions.run_request import SkipReason
 from dagster._core.definitions.sensor_definition import (
-    SensorEvaluationContext,
     build_sensor_context,
 )
 from dagster._core.definitions.time_window_partitions import DailyPartitionsDefinition
@@ -279,13 +278,15 @@ def test_demonstrate_explicit_sensor_in_user_space() -> None:
     )
 
     @sensor(job_name="observing_only_sensor")
-    def observing_only_asset_sensor(context: SensorEvaluationContext) -> SkipReason:
-        context.log_event(
-            AssetObservation(
-                asset_key=observing_only_asset_key, tags={DATA_VERSION_TAG: compute_data_version()}
-            )
+    def observing_only_asset_sensor() -> SensorResult:
+        return SensorResult(
+            asset_events=[
+                AssetObservation(
+                    asset_key=observing_only_asset_key,
+                    tags={DATA_VERSION_TAG: compute_data_version()},
+                )
+            ]
         )
-        return SkipReason("Never kicks off run")
 
     sensor_instance = DagsterInstance.ephemeral()
 
@@ -293,4 +294,8 @@ def test_demonstrate_explicit_sensor_in_user_space() -> None:
         build_sensor_context(instance=sensor_instance)
     )
 
-    assert len(sensor_execution_data.dagster_events) == 1
+    assert len(sensor_execution_data.asset_events) == 1
+
+    asset_event = sensor_execution_data.asset_events[0]
+
+    assert isinstance(asset_event, AssetObservation)
