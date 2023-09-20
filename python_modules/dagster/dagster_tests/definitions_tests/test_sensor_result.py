@@ -243,6 +243,5 @@ def test_yield_and_return():
     assert len(result_yield_and_return_run_request.run_requests) == 2
 
 
-def test_experimental_param() -> None:
-    SensorResult()
+def test_asset_events_experimental_param_on_sensor_result() -> None:
     assert "asset_events" in get_experimental_params(SensorResult)
