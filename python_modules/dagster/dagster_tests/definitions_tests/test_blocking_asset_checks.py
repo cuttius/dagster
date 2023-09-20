@@ -103,9 +103,9 @@ def my_asset_with_managed_input(upstream_asset):
 
 
 @asset_check(asset="my_asset_with_managed_input")
-def fail_check_if_tagged_2(context):
+def fail_check_if_tagged_2(context, my_asset_with_managed_input):
     return AssetCheckResult(
-        success=not context.has_tag("fail_check"), check_name="fail_check_if_tagged"
+        success=not context.has_tag("fail_check"), check_name="fail_check_if_tagged_2"
     )
 
 
@@ -124,19 +124,17 @@ def test_check_pass_with_inputs():
     assert result.success
 
     check_evals = result.get_asset_check_evaluations()
-    assert len(check_evals) == 2
+    assert len(check_evals) == 1
     check_evals_by_name = {check_eval.check_name: check_eval for check_eval in check_evals}
-    assert check_evals_by_name["pass_check"].success
-    assert check_evals_by_name["pass_check"].asset_key == AssetKey(["my_asset_with_managed_input"])
-    assert check_evals_by_name["fail_check_if_tagged"].success
-    assert check_evals_by_name["fail_check_if_tagged"].asset_key == AssetKey(["my_asset_with_managed_input"])
+    assert check_evals_by_name["fail_check_if_tagged_2"].success
+    assert check_evals_by_name["fail_check_if_tagged_2"].asset_key == AssetKey(["my_asset_with_managed_input"])
 
     # downstream asset materializes
     materialization_events = result.get_asset_materialization_events()
     assert len(materialization_events) == 3
     assert materialization_events[0].asset_key == AssetKey(["upstream_asset"])
     assert materialization_events[1].asset_key == AssetKey(["my_asset_with_managed_input"])
-    assert materialization_events[2].asset_key == AssetKey(["downstream_asset"])
+    assert materialization_events[2].asset_key == AssetKey(["downstream_asset_2"])
 
 
 def test_check_fail_and_block_with_inputs():
@@ -146,12 +144,10 @@ def test_check_fail_and_block_with_inputs():
     assert not result.success
 
     check_evals = result.get_asset_check_evaluations()
-    assert len(check_evals) == 2
+    assert len(check_evals) == 1
     check_evals_by_name = {check_eval.check_name: check_eval for check_eval in check_evals}
-    assert check_evals_by_name["pass_check"].success
-    assert check_evals_by_name["pass_check"].asset_key == AssetKey(["my_asset_with_managed_input"])
-    assert not check_evals_by_name["fail_check_if_tagged"].success
-    assert check_evals_by_name["fail_check_if_tagged"].asset_key == AssetKey(["my_asset_with_managed_input"])
+    assert not check_evals_by_name["fail_check_if_tagged_2"].success
+    assert check_evals_by_name["fail_check_if_tagged_2"].asset_key == AssetKey(["my_asset_with_managed_input"])
 
     # downstream asset should not have been materialized
     materialization_events = result.get_asset_materialization_events()
