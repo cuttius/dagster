@@ -76,7 +76,7 @@ def observe_fn_to_op_compute_fn(
     observe_fn: SourceAssetObserveFunction,
     partitions_def: Optional[PartitionsDefinition],
     asset_key: AssetKey,
-):
+) -> "DecoratedOpFunction":
     from dagster._core.definitions.decorators.op_decorator import (
         DecoratedOpFunction,
         is_context_provided,
