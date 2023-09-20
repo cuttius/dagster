@@ -12,6 +12,7 @@ from dagster import (
     op,
     sensor,
 )
+from dagster._annotations import get_experimental_params
 from dagster._check import CheckError
 from dagster._core.definitions.run_request import SensorResult
 from dagster._core.test_utils import instance_for_test
@@ -240,3 +241,8 @@ def test_yield_and_return():
         build_sensor_context()
     )
     assert len(result_yield_and_return_run_request.run_requests) == 2
+
+
+def test_experimental_param() -> None:
+    SensorResult()
+    assert "asset_events" in get_experimental_params(SensorResult)
