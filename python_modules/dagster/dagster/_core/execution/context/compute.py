@@ -1353,7 +1353,7 @@ class AssetExecutionContext(OpExecutionContext):
         self._op_execution_context = check.inst_param(
             op_execution_context, "op_execution_context", OpExecutionContext
         )
-        self._asset_keys = list(self.op_execution_context.assets_def.keys_by_output_name.values())
+        self._asset_keys = list(self._op_execution_context.assets_def.keys_by_output_name.values())
         self._selected_asset_keys = self._op_execution_context.selected_asset_keys
         self._assets_def = self._op_execution_context.assets_def
 
