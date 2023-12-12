@@ -4,7 +4,7 @@ import os
 import uuid
 import warnings
 from collections import namedtuple
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 import boto3
 from botocore.exceptions import ClientError
@@ -20,15 +20,12 @@ from dagster import (
 )
 from dagster._core.events import EngineEventData
 from dagster._core.instance import T_DagsterInstance
-from dagster._core.launcher.base import (
-    CheckRunHealthResult,
-    LaunchRunContext,
-    RunLauncher,
-    WorkerStatus,
-)
+from dagster._core.launcher import LaunchRunContext, ResumeRunContext, RunLauncher
+from dagster._core.launcher.base import CheckRunHealthResult, WorkerStatus
+from dagster._core.origin import JobPythonOrigin
 from dagster._core.storage.dagster_run import DagsterRun
 from dagster._core.storage.tags import RUN_WORKER_ID_TAG
-from dagster._grpc.types import ExecuteRunArgs
+from dagster._grpc.types import ExecuteRunArgs, ResumeRunArgs
 from dagster._serdes import ConfigurableClass
 from dagster._serdes.config_class import ConfigurableClassData
 from dagster._utils.backoff import backoff
@@ -351,20 +348,18 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
 
         return Tags(arn, cluster, cpu, memory)
 
-    def _get_command_args(self, run_args: ExecuteRunArgs, context: LaunchRunContext):
+    def _get_command_args(
+        self, run_args: Union[ExecuteRunArgs, ResumeRunArgs]
+    ) -> Sequence[str]:
         return run_args.get_command_args()
 
-    def _get_image_for_run(self, context: LaunchRunContext) -> Optional[str]:
+    def _get_image_for_run(
+        self, context: Union[LaunchRunContext, ResumeRunContext]
+    ) -> Optional[str]:
         job_origin = check.not_none(context.job_code_origin)
         return job_origin.repository_origin.container_image
 
-    def launch_run(self, context: LaunchRunContext) -> None:
-        """Launch a run in an ECS task."""
-        run = context.dagster_run
-        container_context = EcsContainerContext.create_for_run(run, self)
-
-        job_origin = check.not_none(context.job_code_origin)
-
+    def _get_stripped_job_origin(self, job_origin: JobPythonOrigin):
         # ECS limits overrides to 8192 characters including json formatting
         # https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_RunTask.html
         # When container_context is serialized as part of the ExecuteRunArgs, we risk
@@ -372,18 +367,14 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         # the container context off of our job origin because we don't actually need
         # it to launch the run; we only needed it to create the task definition.
         repository_origin = job_origin.repository_origin
-
-        stripped_repository_origin = repository_origin._replace(container_context={})
+        stripped_repository_origin = repository_origin._replace(container_image=None)
         stripped_job_origin = job_origin._replace(repository_origin=stripped_repository_origin)
+        return stripped_job_origin
 
-        args = ExecuteRunArgs(
-            job_origin=stripped_job_origin,
-            run_id=run.run_id,
-            instance_ref=self._instance.get_ref(),
-        )
-        command = self._get_command_args(args, context)
-        image = self._get_image_for_run(context)
-
+    def _launch_ecs_with_command(
+        self, run: DagsterRun, command: Sequence[str], image: Optional[str]
+    ):
+        container_context = EcsContainerContext.create_for_run(run, self)
         run_task_kwargs = self._run_task_kwargs(run, image, container_context)
 
         # Set cpu or memory overrides
@@ -448,6 +439,43 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         self._set_run_tags(run.run_id, cluster=cluster_arn, task_arn=arn)
         self.report_launch_events(run, arn, cluster_arn)
 
+    def launch_run(self, context: LaunchRunContext) -> None:
+        """Launch a run in an ECS task."""
+        run = context.dagster_run
+
+        job_origin = check.not_none(context.job_code_origin)
+        stripped_job_origin = self._get_stripped_job_origin(job_origin)
+
+        args = ExecuteRunArgs(
+            job_origin=stripped_job_origin,
+            run_id=run.run_id,
+            instance_ref=self._instance.get_ref(),
+        )
+        command = self._get_command_args(args)
+        image = self._get_image_for_run(context)
+        self._launch_ecs_with_command(run, command, image)
+        
+
+    @property
+    def supports_resume_run(self):
+        return True
+    
+    def resume_run(self, context: ResumeRunContext) -> None:
+        run = context.dagster_run
+
+        job_origin = check.not_none(context.job_code_origin)
+        stripped_job_origin = self._get_stripped_job_origin(job_origin)
+
+        args = ResumeRunArgs(
+            job_origin=stripped_job_origin,
+            run_id=run.run_id,
+            instance_ref=self._instance.get_ref(),
+        )
+        command = self._get_command_args(args)
+        image = self._get_image_for_run(context)
+        self._launch_ecs_with_command(run, command, image)
+
+
     def report_launch_events(
         self, run: DagsterRun, arn: Optional[str] = None, cluster: Optional[str] = None
     ):
@@ -493,7 +521,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             overrides = json.loads(tag_overrides)
 
         ephemeral_storage = run.tags.get(
-            "ecs/ephemeral_storage", container_context.run_resources.get("ephemeral_storage")
+            "ecs/ephemeral_storage", container_context.run_resources.get("ephemeral_storage"),
         )
         if ephemeral_storage:
             overrides["ephemeralStorage"] = {"sizeInGiB": int(ephemeral_storage)}
