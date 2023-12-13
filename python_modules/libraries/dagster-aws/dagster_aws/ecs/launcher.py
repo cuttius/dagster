@@ -369,7 +369,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         # the container context off of our job origin because we don't actually need
         # it to launch the run; we only needed it to create the task definition.
         repository_origin = job_origin.repository_origin
-        stripped_repository_origin = repository_origin._replace(container_image=None)
+        stripped_repository_origin = repository_origin._replace(container_context={})
         stripped_job_origin = job_origin._replace(repository_origin=stripped_repository_origin)
         return stripped_job_origin
 
