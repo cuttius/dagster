@@ -349,7 +349,9 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
         return Tags(arn, cluster, cpu, memory)
 
     def _get_command_args(
-        self, run_args: Union[ExecuteRunArgs, ResumeRunArgs]
+        self,
+        run_args: Union[ExecuteRunArgs, ResumeRunArgs],
+        context: Union[LaunchRunContext, ResumeRunContext], 
     ) -> Sequence[str]:
         return run_args.get_command_args()
 
@@ -451,7 +453,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             run_id=run.run_id,
             instance_ref=self._instance.get_ref(),
         )
-        command = self._get_command_args(args)
+        command = self._get_command_args(args, context)
         image = self._get_image_for_run(context)
         self._launch_ecs_with_command(run, command, image)
         
@@ -471,7 +473,7 @@ class EcsRunLauncher(RunLauncher[T_DagsterInstance], ConfigurableClass):
             run_id=run.run_id,
             instance_ref=self._instance.get_ref(),
         )
-        command = self._get_command_args(args)
+        command = self._get_command_args(args, context)
         image = self._get_image_for_run(context)
         self._launch_ecs_with_command(run, command, image)
 
