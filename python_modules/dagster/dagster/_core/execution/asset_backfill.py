@@ -404,7 +404,6 @@ class AssetBackfillData(NamedTuple):
         cls,
         target_subset: AssetGraphSubset,
         backfill_start_time: datetime,
-        asset_graph: AssetGraph,
         dynamic_partitions_store: DynamicPartitionsStore,
     ) -> "AssetBackfillData":
         return cls(
@@ -498,7 +497,7 @@ class AssetBackfillData(NamedTuple):
             partitions_subsets_by_asset_key=partitions_subsets_by_asset_key,
             non_partitioned_asset_keys=non_partitioned_asset_keys,
         )
-        return cls.empty(target_subset, backfill_start_time, asset_graph, dynamic_partitions_store)
+        return cls.empty(target_subset, backfill_start_time, dynamic_partitions_store)
 
     @classmethod
     def from_asset_partitions(
@@ -562,7 +561,7 @@ class AssetBackfillData(NamedTuple):
         else:
             check.failed("Either partition_names must not be None or all_partitions must be True")
 
-        return cls.empty(target_subset, backfill_start_time, asset_graph, dynamic_partitions_store)
+        return cls.empty(target_subset, backfill_start_time, dynamic_partitions_store)
 
     def serialize(
         self, dynamic_partitions_store: DynamicPartitionsStore, asset_graph: AssetGraph
@@ -1220,6 +1219,20 @@ def _get_failed_and_downstream_asset_partitions(
     return failed_and_downstream_subset
 
 
+def _get_next_latest_storage_id(instance_queryer: CachingInstanceQueryer) -> int:
+    # Events are not always guaranteed to be written to the event log in monotonically increasing
+    # order, so add a configurable offset to ensure that any stragglers will still be included in
+    # the next iteration.
+    # This may result in the same event being considered within multiple iterations, but
+    # idempotence checks later ensure that the materialization isn't incorrectly
+    # double-counted.
+    cursor_offset = int(os.getenv("ASSET_BACKFILL_CURSOR_OFFSET", "0"))
+    next_latest_storage_id = (
+        instance_queryer.instance.event_log_storage.get_maximum_record_id() or 0
+    )
+    return max(next_latest_storage_id - cursor_offset, 0)
+
+
 def execute_asset_backfill_iteration_inner(
     backfill_id: str,
     asset_backfill_data: AssetBackfillData,
@@ -1247,9 +1260,10 @@ def execute_asset_backfill_iteration_inner(
 
         updated_materialized_subset = AssetGraphSubset()
         failed_and_downstream_subset = AssetGraphSubset()
-        next_latest_storage_id = instance_queryer.instance.event_log_storage.get_maximum_record_id()
+        next_latest_storage_id = _get_next_latest_storage_id(instance_queryer)
     else:
-        next_latest_storage_id = instance_queryer.instance.event_log_storage.get_maximum_record_id()
+        next_latest_storage_id = _get_next_latest_storage_id(instance_queryer)
+
         cursor_delay_time = int(os.getenv("ASSET_BACKFILL_CURSOR_DELAY_TIME", "0"))
         # Events are not guaranteed to be written to the event log in monotonic increasing order,
         # so we wait to ensure all events up until next_latest_storage_id have been written.

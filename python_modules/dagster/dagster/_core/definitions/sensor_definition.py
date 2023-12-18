@@ -120,6 +120,7 @@ class SensorEvaluationContext:
         last_tick_completion_time (float): The last time that the sensor was evaluated (UTC).
         last_run_key (str): DEPRECATED The run key of the RunRequest most recently created by this
             sensor. Use the preferred `cursor` attribute instead.
+        log_key (Optional[List[str]]): The log key to use for this sensor tick.
         repository_name (Optional[str]): The name of the repository that the sensor belongs to.
         repository_def (Optional[RepositoryDefinition]): The repository or that
             the sensor belongs to. If needed by the sensor top-level resource definitions will be
@@ -150,6 +151,7 @@ class SensorEvaluationContext:
         last_tick_completion_time: Optional[float] = None,
         last_run_key: Optional[str] = None,
         cursor: Optional[str] = None,
+        log_key: Optional[Sequence[str]] = None,
         repository_name: Optional[str] = None,
         repository_def: Optional["RepositoryDefinition"] = None,
         instance: Optional[DagsterInstance] = None,
@@ -190,15 +192,17 @@ class SensorEvaluationContext:
         self._resources = None
         self._cm_scope_entered = False
 
-        self._log_key = (
-            [
+        self._log_key = log_key
+
+        # Kept for backwards compatibility if the sensor log key is not passed into the
+        # sensor evaluation.
+        if not self._log_key and repository_name and sensor_name:
+            self._log_key = [
                 repository_name,
                 sensor_name,
                 pendulum.now("UTC").strftime("%Y%m%d_%H%M%S"),
             ]
-            if repository_name and sensor_name
-            else None
-        )
+
         self._logger: Optional[InstigationLogger] = None
         self._cursor_updated = False
 
@@ -236,6 +240,7 @@ class SensorEvaluationContext:
             last_tick_completion_time=self._last_tick_completion_time,
             last_run_key=self._last_run_key,
             cursor=self._cursor,
+            log_key=self._log_key,
             repository_name=self._repository_name,
             repository_def=self._repository_def,
             instance=self._instance,
@@ -424,7 +429,7 @@ class SensorEvaluationContext:
         return self._logger and self._logger.has_captured_logs()
 
     @property
-    def log_key(self) -> Optional[List[str]]:
+    def log_key(self) -> Optional[Sequence[str]]:
         return self._log_key
 
 
@@ -856,7 +861,7 @@ class SensorDefinition(IHasInternalInit):
             skip_message,
             updated_cursor,
             dagster_run_reactions,
-            captured_log_key=context.log_key if context.has_captured_logs() else None,
+            log_key=context.log_key if context.has_captured_logs() else None,
             dynamic_partitions_requests=dynamic_partitions_requests,
             asset_events=asset_events,
         )
@@ -982,7 +987,10 @@ class SensorDefinition(IHasInternalInit):
 
 
 @whitelist_for_serdes(
-    storage_field_names={"dagster_run_reactions": "pipeline_run_reactions"},
+    storage_field_names={
+        "dagster_run_reactions": "pipeline_run_reactions",
+        "log_key": "captured_log_key",
+    },
 )
 class SensorExecutionData(
     NamedTuple(
@@ -992,7 +1000,7 @@ class SensorExecutionData(
             ("skip_message", Optional[str]),
             ("cursor", Optional[str]),
             ("dagster_run_reactions", Optional[Sequence[DagsterRunReaction]]),
-            ("captured_log_key", Optional[Sequence[str]]),
+            ("log_key", Optional[Sequence[str]]),
             (
                 "dynamic_partitions_requests",
                 Optional[
@@ -1014,7 +1022,7 @@ class SensorExecutionData(
         skip_message: Optional[str] = None,
         cursor: Optional[str] = None,
         dagster_run_reactions: Optional[Sequence[DagsterRunReaction]] = None,
-        captured_log_key: Optional[Sequence[str]] = None,
+        log_key: Optional[Sequence[str]] = None,
         dynamic_partitions_requests: Optional[
             Sequence[Union[AddDynamicPartitionsRequest, DeleteDynamicPartitionsRequest]]
         ] = None,
@@ -1026,7 +1034,7 @@ class SensorExecutionData(
         check.opt_str_param(skip_message, "skip_message")
         check.opt_str_param(cursor, "cursor")
         check.opt_sequence_param(dagster_run_reactions, "dagster_run_reactions", DagsterRunReaction)
-        check.opt_list_param(captured_log_key, "captured_log_key", str)
+        check.opt_list_param(log_key, "log_key", str)
         check.opt_sequence_param(
             dynamic_partitions_requests,
             "dynamic_partitions_requests",
@@ -1046,7 +1054,7 @@ class SensorExecutionData(
             skip_message=skip_message,
             cursor=cursor,
             dagster_run_reactions=dagster_run_reactions,
-            captured_log_key=captured_log_key,
+            log_key=log_key,
             dynamic_partitions_requests=dynamic_partitions_requests,
             asset_events=asset_events or [],
         )
@@ -1156,6 +1164,7 @@ def build_sensor_context(
         last_tick_completion_time=None,
         last_run_key=None,
         cursor=cursor,
+        log_key=None,
         repository_name=repository_name,
         instance=instance,
         repository_def=repository_def,
